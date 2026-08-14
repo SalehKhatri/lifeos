@@ -81,7 +81,7 @@ Update this as you go. Keep notes short — one line per item is enough.
 
 | Issue | Severity | Notes |
 | ----- | -------- | ----- |
-|       |          |       |
+| No rate limiting on `/auth/login` and `/auth/register` | High | Nothing currently stops brute-forcing a password or hammering registration for account enumeration/spam. Not listed in `MVP_SPEC.md` Out of Scope — this is an unflagged gap, not a deliberate deferral. Cookie/JWT handling itself is otherwise solid (httpOnly, `sameSite: lax`, `secure` in production, 32+ char secret enforced). |
 
 ## Decisions Log
 
