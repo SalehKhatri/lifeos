@@ -12,6 +12,12 @@ priority, and available time. Full scope: `docs/MVP_SPEC.md`.
 - Frontend: Next.js + TypeScript + Tailwind — `frontend/`
 - Two separate services, one repo, no monorepo tooling.
 
+## Repo
+
+- GitHub: https://github.com/SalehKhatri/lifeos (public, no license — all rights reserved)
+- Default/main branch: `main`. Branch before committing if on `main`; only commit/push when
+  asked (see harness-level instructions).
+
 ## Architecture — read before writing backend code
 
 Backend is a **modular monolith**. Full detail: `docs/ARCHITECTURE.md`. The one rule that
