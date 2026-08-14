@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    // File Layout — no rootDir: prisma.config.ts lives at the backend root alongside src/
+    "outDir": "./dist",
+
+    // Environment Settings — plain CommonJS (matches ts-node-dev + Prisma's moduleFormat = "cjs").
+    // NodeNext + no "type" field in package.json = CommonJS per-file resolution (esModuleInterop implied).
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "resolveJsonModule": true,
+
+    // Other Outputs
+    "sourceMap": true,
+    "declaration": false,
+
+    // Stricter Typechecking Options
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+
+    // Recommended Options
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*", "prisma/**/*", "prisma.config.ts"],
+  "exclude": ["node_modules", "dist", "generated"]
+}

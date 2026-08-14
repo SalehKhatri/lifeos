@@ -1,0 +1,145 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  // Rest of the backend is CommonJS (ts-node-dev) — keep the generated client CJS too.
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- Enums -------------------------------------------------------------
+// NOTE: MVP_SPEC.md doesn't lock exact enum values for Task.status/priority or
+// Project.status — these are a reasonable default, called out in
+// docs/PROGRESS.md's Decisions Log. Revisit if the product needs differ.
+// Task.category is NOT an enum (see Category model below) — users can add
+// their own categories on top of a seeded set of defaults.
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
+}
+
+// --- Models --------------------------------------------------------------
+
+model User {
+  id    String  @id @default(cuid())
+  email String  @unique
+  name  String? // optional — display name for greetings ("Hello Saleh"), no default
+
+  // IANA timezone (e.g. "America/New_York"). Frontend auto-detects via
+  // Intl.DateTimeFormat().resolvedOptions().timeZone and sends it; defaults to
+  // UTC if omitted. Used for display/local-day bucketing only — changing this
+  // does NOT shift existing Task/Project deadlines (those are fixed instants
+  // the user meant at creation time, not relative to whatever zone the
+  // profile says today). See docs/PROGRESS.md Decisions Log.
+  timezone String @default("UTC")
+
+  // Nullable: email/password is the only provider in v1, but this leaves room
+  // for OAuth-only accounts later without a breaking migration (MVP_SPEC.md
+  // requires designing for more providers now, building them later).
+  passwordHash String?
+  createdAt    DateTime @default(now())
+
+  tasks          Task[]
+  projects       Project[]
+  scheduleBlocks ScheduleBlock[]
+  categories     Category[]
+
+  @@map("users")
+}
+
+// Seeded defaults have userId = null (shared, visible to every user).
+// Users can add their own on top; only the owner can delete their own rows.
+model Category {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  color     String? // optional hex color (e.g. "#4F46E5") for UI badges/dots
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks Task[]
+
+  @@unique([userId, name])
+  @@map("categories")
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  status      ProjectStatus @default(ACTIVE)
+  deadline    DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  tasks Task[]
+
+  @@index([userId])
+  @@map("projects")
+}
+
+model Task {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId  String?
+  project    Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  title       String
+  description String?
+
+  status   TaskStatus   @default(TODO)
+  priority TaskPriority @default(MEDIUM)
+
+  estimatedDuration Int // minutes
+  deadline          DateTime?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([categoryId])
+  @@map("tasks")
+}
+
+model ScheduleBlock {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  dayOfWeek Int // 0 = Sunday ... 6 = Saturday
+  startTime Int // minutes since midnight (0-1439)
+  endTime   Int // minutes since midnight (0-1439)
+  label     String
+
+  @@index([userId])
+  @@map("schedule_blocks")
+}

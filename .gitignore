@@ -1,0 +1,14 @@
+# OS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+
+# Env files at the repo root (backend/ and frontend/ have their own)
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
