@@ -32,34 +32,39 @@ Update this as you go. Keep notes short — one line per item is enough.
 
 | Item                        | Status | Notes |
 | ---------------------------- | ------ | ----- |
-| Category model + migration  | ✅     | seeded defaults: Work, Personal, Health, Learning, Admin, Other |
-| List/create/delete endpoints | 🔲     | model exists; module (routes/controller/service) not built yet — planned alongside Tasks |
+| Category model + migration    | ✅     | seeded defaults: Work, Personal, Health, Learning, Admin, Other; `color` + `updatedAt` added 2026-08-14 |
+| List/create/rename/delete endpoints | ✅ | `GET/POST /categories`, `PATCH/DELETE /categories/:id`; case-insensitive name uniqueness across defaults + own; defaults can't be renamed/deleted (403) |
 
 ## Tasks
 
 | Item              | Status | Notes |
 | ----------------- | ------ | ----- |
-| Create task       | 🔲     |       |
-| Edit task         | 🔲     |       |
-| Delete task       | 🔲     |       |
-| Complete task     | 🔲     |       |
-| List/filter tasks | 🔲     |       |
+| Create task       | ✅     | validates categoryId + projectId via Categories/Projects modules' index.ts |
+| Edit task         | ✅     | `PATCH /tasks/:id`; completedAt auto-syncs with status transitions |
+| Delete task       | ✅     |       |
+| Complete task     | ✅     | `POST /tasks/:id/complete`, idempotent (no-op if already DONE) |
+| List/filter tasks | ✅     | `GET /tasks?status=&priority=&categoryId=&projectId=` |
+| Project linkage   | ✅     | `Task.projectId` now wired up, validated via Projects module's `getOwnedProjectOrThrow` |
 
 ## Projects
 
 | Item                      | Status | Notes |
 | ------------------------- | ------ | ----- |
-| Create project            | 🔲     |       |
-| Edit project              | 🔲     |       |
-| Auto progress calculation | 🔲     |       |
+| Create project            | ✅     |       |
+| Edit project               | ✅     | `PATCH /projects/:id` |
+| Delete project             | ✅     | `DELETE /projects/:id` — added beyond the original locked API surface, see Decisions Log; un-links tasks (SetNull), doesn't delete them |
+| Auto progress calculation | ✅     | `% tasks completed`, computed at query time via one `groupBy` (not stored, not a query-per-project) |
+| List/filter projects       | ✅     | `GET /projects?status=` |
 
 ## Availability / Schedule
 
 | Item                      | Status | Notes |
 | ------------------------- | ------ | ----- |
-| Create schedule block     | 🔲     |       |
-| Delete schedule block     | 🔲     |       |
-| Compute today's free time | 🔲     |       |
+| Create schedule block     | ✅     | `startTime < endTime` validated |
+| Edit schedule block       | ✅     | `PATCH /schedule/:id` — added beyond original locked API surface, see Decisions Log; time-order re-validated against merged (existing + new) values |
+| Delete schedule block     | ✅     |       |
+| List/filter schedule      | ✅     | `GET /schedule?dayOfWeek=`, ordered by day then start time |
+| Compute today's free time | 🔲     | belongs to the Prioritization Engine, not Schedule itself |
 
 ## Prioritization Engine
 
@@ -192,3 +197,84 @@ Short record of decisions made and why, so you don't relitigate them later.
   want their own `User` fields later (notification prefs, locale/unit
   prefs) — not adding speculatively, cheaper to add a nullable column when
   actually needed than to guess the shape now.
+- 2026-08-14 — Revisited Task/Category schemas against `MVP_SPEC.md` before
+  building the Tasks module. Confirmed Out-of-Scope items (recurrence,
+  dependencies, tags, energy-level, snooze/duplicate, daily-plan
+  auto-generation, duration prediction) correctly imply no corresponding
+  fields exist. Added `updatedAt` to both `Task` and `Category` (Project
+  already had one) — cheap now, annoying migration later. Added `Category.color`
+  (optional hex) for UI badges — not in spec but cheap and directly useful.
+  Added Category rename (`PATCH /categories/:id`, own categories only, same
+  permission model as delete) — the gap mattered because `Task.category` has
+  `onDelete: SetNull`, so delete+recreate-to-rename was silently uncategorizing
+  every task using that category.
+- 2026-08-14 — Category names are unique per-user case-insensitively across
+  defaults + own (checked at the service layer via Prisma's `mode: "insensitive"`,
+  not a DB constraint — Postgres unique indexes are case-sensitive by default).
+  Prevents a confusing pair like "Work" (default) and "work" (custom) both
+  showing up for the same user.
+- 2026-08-14 — `Task.projectId` is NOT exposed via the Tasks API yet, even
+  though the column exists. Validating it would require querying the `Project`
+  Prisma model directly from the Tasks service, which `ARCHITECTURE.md`
+  explicitly forbids ("never reach into another module's ... Prisma models
+  directly") — and the Projects module doesn't exist yet to expose a proper
+  `index.ts` check. Will add `categoryId`-style validation (via Projects'
+  `index.ts`) once that module is built.
+- 2026-08-14 — Migration gotcha: adding a required `updatedAt` column to
+  `categories` (6 seeded rows already present) needed `--create-only` +
+  manually adding `DEFAULT CURRENT_TIMESTAMP` to the generated SQL to backfill
+  existing rows — Prisma won't auto-add a required column with no default to
+  a non-empty table. Prisma's `@updatedAt` still explicitly sets the value on
+  every write going forward; the SQL-level default only matters for the
+  backfill (and any raw-SQL inserts).
+- 2026-08-16 — Added `DELETE /projects/:id`, beyond `MVP_SPEC.md`'s originally
+  locked API surface (which only listed GET/POST/PATCH) — flagged as a likely
+  oversight since Tasks and Categories both support real delete, and
+  `Task.project` already has `onDelete: SetNull` (deleting a project safely
+  un-links its tasks rather than deleting them). User confirmed: add it.
+- 2026-08-16 — Wired up `Task.projectId` (deferred since 2026-08-14): validated
+  on task create/update via Projects module's `getOwnedProjectOrThrow`
+  (`modules/projects/index.ts`), same pattern as `categoryId` →
+  `getUsableCategoryOrThrow`. Verified cross-user isolation live (user B
+  cannot link a task to user A's project — 404, not 403, consistent with
+  Tasks/Categories' "don't hint a private resource exists" convention).
+- 2026-08-16 — Architecture conflict, resolved with user sign-off: Tasks
+  depending on Projects (for `projectId` FK validation) and Projects also
+  depending on Tasks (for progress's task counts) would be a real circular
+  module dependency, which `ARCHITECTURE.md` forbids outright. Chose to keep
+  Tasks → Projects (the safety-critical, write-path direction, consistent
+  with the `categoryId` precedent) and have `projects.service.ts` query the
+  `Task` table directly for progress instead — a deliberate, narrow, flagged
+  exception to "never touch another module's Prisma models directly" (a
+  weaker rule than "no circular dependencies"). Documented in both
+  `ARCHITECTURE.md` and here so it isn't mistaken for an oversight; if a third
+  module needs the same kind of cross-read, promote it to a proper aggregator
+  instead of adding another one-off.
+- 2026-08-16 — Project progress computed via one `groupBy` query (grouped by
+  `projectId` + `status`, counts summed in memory) regardless of how many
+  projects are being listed — not a query per project. Verified with a real
+  project + 4 tasks (1 completed) → 25% reported correctly on both
+  `GET /projects` and `GET /projects/:id`.
+- 2026-08-16 — Added `PATCH /schedule/:id`, beyond `MVP_SPEC.md`'s originally
+  locked API surface (GET/POST/DELETE only) — same gap shape as Category
+  rename and Project delete, now a well-established pattern, so applied
+  directly rather than re-asking: Tasks/Categories/Projects all support edit,
+  and unlike Category, nothing references `ScheduleBlock` via FK, so
+  delete+recreate has zero cascade side effects anyway — this is a pure
+  convenience add, not a footgun fix. Added `createdAt`/`updatedAt` for the
+  same consistency reasons as Task/Category earlier (table was empty, no
+  backfill migration needed this time).
+- 2026-08-16 — `ScheduleBlock.startTime` must be strictly before `endTime`
+  (enforced on create via zod `.refine`, and on update by merging the partial
+  input with the existing record before checking — a partial update can't be
+  validated against itself alone). No overlap-prevention across blocks on the
+  same day — deliberately left to the Prioritization Engine to handle (interval
+  merging) when it computes available time, not Schedule's job at write time.
+- 2026-08-16 — Postman fully synced for Auth, Categories, Tasks, Projects
+  (`LifeOS API` collection, "My Workspace" on the individual account): one
+  folder per module, one request per route, each with docs (body/query
+  schema, auth requirement, success shape, error table) and success + one
+  representative-error saved example. Removed the "Postman sync pending"
+  Known Issue — it was already stale when written (Auth/Categories/Tasks had
+  been synced earlier in the same session) and is now fully resolved,
+  including the `projectId` wiring on Tasks and the new Projects module.

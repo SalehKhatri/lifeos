@@ -61,6 +61,15 @@ service     → Business logic lives here. Only place that talks to Prisma.
   modifying existing modules.
 - If a business rule needs an `if` statement, it belongs in a service, not a route or controller.
 
+**Known, flagged exception:** `projects.service.ts` queries the `Task` table directly (for
+`GET /projects` progress counts) instead of going through `modules/tasks`' `index.ts`. `tasks`
+already depends on `projects` (index.ts) to validate a task's `projectId` on write — having
+`projects` depend on `tasks` too, for this read, would be a real circular module dependency,
+which is more strictly forbidden than a narrow, documented, read-only cross-table query.
+User-approved 2026-08-16 (see `docs/PROGRESS.md` Decisions Log). If a third module ever needs
+the same kind of cross-read, promote it into a proper aggregator instead of adding another
+one-off exception.
+
 ## Conventions
 
 - **Validation**: use `zod` schemas for request bodies, defined near the controller that uses them.

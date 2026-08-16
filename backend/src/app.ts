@@ -2,6 +2,10 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { authRouter } from "./modules/auth";
+import { categoriesRouter } from "./modules/categories";
+import { tasksRouter } from "./modules/tasks";
+import { projectsRouter } from "./modules/projects";
+import { scheduleRouter } from "./modules/schedule";
 import { errorHandler, notFoundHandler } from "./shared/middleware/errorHandler";
 import { env } from "./shared/config/env";
 
@@ -19,6 +23,10 @@ export function createApp() {
   });
 
   app.use("/auth", authRouter);
+  app.use("/categories", categoriesRouter);
+  app.use("/tasks", tasksRouter);
+  app.use("/projects", projectsRouter);
+  app.use("/schedule", scheduleRouter);
 
   // Must be last: 404 catch-all, then the centralized error handler.
   app.use(notFoundHandler);
