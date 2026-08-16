@@ -20,6 +20,58 @@ Two separate services in one repo, no monorepo tooling — see
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the backend's modular-monolith structure
 and module coupling rules.
 
+## Status
+
+| Module | Status |
+| --- | --- |
+| Auth (register/login/logout/profile/delete) | ✅ Done |
+| Categories (list/create/rename/delete) | ✅ Done |
+| Tasks (CRUD + complete, filterable) | ✅ Done |
+| Projects (CRUD, auto progress %) | ✅ Done |
+| Schedule (recurring weekly availability, CRUD) | ✅ Done |
+| Prioritization Engine (`/recommendations`) | 🔲 Not started |
+| Today View (`/today`) | 🔲 Not started |
+| Frontend | 🔲 Not started (default `create-next-app` output) |
+
+Full detail, notes, and decisions: [`docs/PROGRESS.md`](docs/PROGRESS.md).
+
+## API
+
+```
+POST   /auth/register
+POST   /auth/login
+POST   /auth/logout
+GET    /auth/me
+PATCH  /auth/me
+DELETE /auth/me
+
+GET    /tasks              # ?status=&priority=&categoryId=&projectId=
+POST   /tasks
+GET    /tasks/:id
+PATCH  /tasks/:id
+DELETE /tasks/:id
+POST   /tasks/:id/complete
+
+GET    /categories
+POST   /categories
+PATCH  /categories/:id
+DELETE /categories/:id
+
+GET    /projects           # ?status=
+POST   /projects
+GET    /projects/:id
+PATCH  /projects/:id
+DELETE /projects/:id
+
+GET    /schedule            # ?dayOfWeek=
+POST   /schedule
+PATCH  /schedule/:id
+DELETE /schedule/:id
+```
+
+A documented Postman collection (`LifeOS API`, with request/response examples and error
+tables per endpoint) is kept in sync with this list — ask if you need access.
+
 ## Repo layout
 
 ```

@@ -15,8 +15,8 @@ priority, and available time. Full scope: `docs/MVP_SPEC.md`.
 ## Repo
 
 - GitHub: https://github.com/SalehKhatri/lifeos (public, no license — all rights reserved)
-- Default/main branch: `main`. Branch before committing if on `main`; only commit/push when
-  asked (see harness-level instructions).
+- Default/main branch: `main`. Commit and push to `main` directly (see Workflow rules) —
+  no branch/PR flow yet at this stage of a solo project.
 
 ## Architecture — read before writing backend code
 
@@ -55,6 +55,10 @@ Within a module: `routes` (HTTP wiring only) → `controller` (validate + shape 
 - After finishing a feature or fixing something notable, update the status table in
   `docs/PROGRESS.md` (Not Started / In Progress / Done / Needs Fix) and add a one-line entry
   to the Decisions Log if a real decision was made.
+- After finishing a feature or fixing something notable (and after the Postman/docs sync
+  above), commit and push to GitHub (`main`) without waiting to be asked each time — check
+  for secrets before staging (`.env`, real API keys/connection strings) since the repo is
+  public. Write a commit message that says what changed and why, not just what files moved.
 - When adding or changing a route, mirror it in Postman (`LifeOS API` collection, "My Workspace"
   on the individual account — not the "Saleh's Team" one): one folder per module, one request per
   route. For each request write/update the description (body schema, auth requirement, success
