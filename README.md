@@ -31,7 +31,7 @@ and module coupling rules.
 | Schedule (recurring weekly availability, CRUD) | ✅ Done |
 | Prioritization Engine (`/recommendations`) | ✅ Done |
 | Today View (`/today`) | ✅ Done |
-| Frontend | 🔄 In progress — foundation + design system done, pages not built yet (see `frontend/DESIGN.md`) |
+| Frontend | 🔄 In progress — foundation, design system, auth pages, nav + Cmd/Ctrl+K command palette done; Tasks/Projects/Schedule/Today/Settings pages not built yet (see `frontend/DESIGN.md`) |
 
 Full detail, notes, and decisions: [`docs/PROGRESS.md`](docs/PROGRESS.md).
 

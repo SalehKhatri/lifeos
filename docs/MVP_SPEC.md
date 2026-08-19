@@ -115,6 +115,15 @@ when it was built, easiest to retune later:
 - "Up next" (2–3 tasks)
 - Today's fixed commitments (from availability blocks)
 
+### 7. Command Palette (Cmd/Ctrl+K)
+
+Brought into v1 scope 2026-08-19 (was previously listed under Out of Scope) — user
+explicitly asked for fast, keyboard-first access to the app rather than clicking through
+multiple pages/buttons for common actions. Global navigation (Today/Tasks/Projects/
+Schedule/Settings) + session (log out) for now; extend with quick-actions (e.g. "New
+Task") as each respective page is built. No backend API surface of its own — pure
+frontend UX on top of existing pages. Full implementation detail in `frontend/DESIGN.md`.
+
 ## Database Entities (v1)
 
 ```
@@ -180,7 +189,6 @@ GET    /recommendations
 - Analytics & behavioral learning
 - Adaptive scheduling (duration prediction)
 - Finance / Fitness / Meal planning / Career tracker / Academic tracker modules
-- Keyboard shortcuts, command palette
 - Password reset ("forgot password") and email verification — both need a
   transactional email provider, which isn't decided yet. Revisit together
   when email-sending is actually needed (see `docs/PROGRESS.md` Decisions Log,

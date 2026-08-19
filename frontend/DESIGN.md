@@ -72,6 +72,89 @@ something you'll do 50 times a day. Retune globally by editing `TRANSITION_FAST`
   animation/transition durations to ~0 — this applies regardless of what any component does,
   so no per-component reduced-motion handling is needed.
 
+### Microinteractions — established conventions (2026-08-19)
+
+**Standing principle, confirmed by user 2026-08-19: this app should feel genuinely
+interactive, not just styled.** Default to reactive/proximity/cursor-driven effects over
+static binary hover states wherever an element reasonably supports it — the cursor-as-torch
+effect below (something reacts continuously to *where you are*, not just *whether you're
+hovering it*) is the reference example, not a one-off flourish confined to the auth pages.
+When building Tasks/Projects/Schedule/Today/Settings in later phases, actively look for
+places this fits (card hover glow that tracks cursor position within the card, not just an
+on/off state; a button that leans/brightens toward the cursor; anything else in that spirit)
+rather than defaulting to plain Tailwind `hover:` classes out of habit. Keep it "subtle &
+snappy" per the animation direction above — reactive, not gratuitous.
+
+The following are the baseline for every future page, not just auth — reuse them rather than
+reinventing per component:
+
+- **Field-level validation errors** (`components/form-field.tsx`) animate in/out
+  (height+opacity via `AnimatePresence`) with a small `CircleAlert` icon — never a bare
+  `<p className="text-destructive">` that just pops into existence. These stay inline,
+  right under their field — small, expected, don't meaningfully shift layout.
+- **API-level errors are a toast (`sonner`'s `toast.error(...)`), not an inline `Alert`.**
+  Tried an animated inline `Alert` banner first (shadcn's own "auth screen" recipe
+  suggests it) — in practice, an API error growing the Card taller on submit is a bad
+  feel, and it was the one inconsistent spot in the app: every other mutation
+  (task/project/etc. save/delete failures) was always going to be a toast. Corrected
+  2026-08-19 after user feedback. Rule: field errors inline, API/server errors toast.
+- **Every text input/textarea/select** (`components/ui/input.tsx`, `textarea.tsx`,
+  `select.tsx`) glows on focus (`focus-visible:shadow-glow-cyan`, transitioning
+  `box-shadow` alongside color/border) — a systemic fix at the component-source level, not
+  per-page. Any future custom form control should match this.
+- **Auth pages use `components/auth-layout.tsx`** — ambient blurred glow orbs + a
+  two-column branding panel (hidden on mobile, where the Card's own small wordmark header
+  carries branding instead) + a `scaleIn` entrance for the card. A page that's "just a
+  centered form" reads as empty for this aesthetic — give it atmosphere.
+- **Cursor-as-torch**: the ambient glow orbs brighten based on cursor proximity (closer =
+  brighter, via a distance falloff — see `TORCH_RADIUS`/`proximityOpacity` in
+  `auth-layout.tsx`). Implemented with `useMotionValue` + `useSpring`, not `useState` —
+  `pointermove` fires constantly, and a `useState` update per pixel of mouse movement would
+  re-render the tree that often; motion values write directly to the DOM instead. The
+  spring is what makes both the live-following motion *and* the settle-back-to-dim on
+  pointer-leave feel natural, rather than needing separate logic for each. Respects
+  `prefers-reduced-motion` (skips updating target values entirely, orbs stay static-dim).
+  Reusable pattern for any other ambient decoration that should react to the cursor later.
+- **No icons in the primary nav, no avatar.** Lucide dashboard icons (`LayoutDashboard`,
+  `ListTodo`, ...) paired with filled hover-pills reads as generic SaaS-admin, not
+  Jarvis/HUD — corrected 2026-08-19 after user feedback. Nav links are text-only
+  (`font-heading`, tracking-widest, uppercase) with a **shared glowing underline that
+  slides between items** via Motion's `layoutId` (`nav-active-indicator` in
+  `(app)/layout.tsx`) when the active route changes — animated and reactive, not a static
+  highlight. Inactive links get a faint underline preview on hover (scales in from
+  `scale-x-0`), foreshadowing the active state rather than a filled background. The user
+  menu trigger is plain text (name/email) + a chevron, not an avatar circle — there's no
+  profile picture anywhere in this app, so an initials-in-a-circle represents nothing and
+  just looks like unfinished decoration. Small utility icons (gear, logout) are still fine
+  *inside* the dropdown itself — that's a conventional, backgrounded surface, not the
+  prominent nav row, so it doesn't carry the same "dashboard" read.
+- **Command palette (`components/command-palette.tsx`) icons, chosen deliberately, not
+  defaulted to the first semantically-plausible option** — unlike the primary nav, a
+  command palette is a conventionally icon-heavy pattern (VSCode, Raycast, Linear, ...)
+  since icons aid scanning a vertical list fast; the "no icons" nav rule above doesn't
+  extend here. `Target` for Today (focus/"work on this right now", not the more
+  generic-AI-magic `Sparkles`), `ListChecks` for Tasks (more precise checkmark than
+  `ListTodo`'s consumer-to-do-app read), `FolderKanban`/`CalendarClock`/`Settings`/`LogOut`
+  kept as-is — already clear, professional, not generic. Reconsider each new icon this
+  deliberately rather than grabbing the first lucide match for the word.
+- **Command palette instant-select: bare digit keys (1-9), not mnemonic letters or
+  Cmd+letter.** The search input is focused by default when the palette opens, so a bare
+  letter shortcut would just get typed as a query character instead of firing — and
+  Cmd/Ctrl+letter collides with shortcuts the *browser itself* already owns (⌘T new tab,
+  ⌘W close tab, ⌘S save, ...), which a web app can't safely reclaim. Digits are
+  `preventDefault`-ed while the palette is open so they never land in the input either —
+  deliberate tradeoff: this palette is navigation, not free-text/numeric search, so giving
+  up "type a digit as a query" costs nothing real. `COMMANDS` in
+  `command-palette.tsx` is a single data-driven array (label/icon/group/action) that both
+  renders the list and assigns shortcut numbers positionally — extend that array for new
+  commands (Phase 2's "New Task", etc.), don't hand-maintain two parallel lists. Numbers
+  are positional (shift if you reorder/insert commands) — acceptable for a handful of
+  items, revisit if the list grows enough that this becomes annoying. Selected-row
+  highlight uses `accent-cyan` (edited directly in `components/ui/command.tsx`'s shared
+  `CommandItem`, not just this palette) instead of shadcn's default generic muted
+  background, and the dialog has a footer hint bar (↑↓ · ↵ · 1-9 · ESC) — command
+  palettes should teach their own shortcuts inline, not rely on the user already knowing.
+
 ## Radius & type
 
 - `--radius: 0.375rem` — slightly sharper than shadcn's default `0.625rem`, for a more
@@ -95,6 +178,29 @@ something you'll do 50 times a day. Retune globally by editing `TRANSITION_FAST`
     `var(--font-chakra-petch)`. Tailwind v4's `@theme inline` resolves at parse time, so
     referencing a runtime-injected `next/font` CSS variable there doesn't work reliably —
     a known shadcn + Tailwind v4 + Next.js gotcha, not a stylistic choice.
+
+## Component gotchas (this shadcn CLI version)
+
+This project's shadcn install (CLI 4.18.0) uses `@base-ui/react` for some components
+(`Button`, `Badge`, `DropdownMenu`, ...), which isn't a drop-in match for the Radix-based
+examples you'll find in most shadcn docs/tutorials online. Differences actually hit so far:
+
+- **`DropdownMenuLabel`/`DropdownMenuItem` require a `DropdownMenuGroup` ancestor.** Unlike
+  Radix, where `Label` works standalone, Base UI throws `MenuGroupContext is missing` at
+  runtime (not a type error — only shows up when you actually open the menu) if you skip the
+  `Group` wrapper. Always wrap: `<DropdownMenuGroup><DropdownMenuLabel/>...items...
+  </DropdownMenuGroup>`. Caught 2026-08-19 in the nav shell's user menu — check every new
+  `DropdownMenu` usage (task/project/schedule row actions in later phases) for this.
+- **No `asChild` prop.** Base UI's polymorphism story is a `render` prop, not Radix's
+  `asChild`. Rather than fight that per-component, the nav's dropdown menu items use
+  `onClick={() => router.push(...)}` instead of wrapping a real `<Link>` — fine for a small
+  settings/logout menu, but use real `<Link>`s for anything that should be a proper anchor
+  (primary nav, anything worth right-click-open-in-new-tab).
+- **No `form.tsx`** — this version's `form` registry entry is an empty stub. Forms are
+  composed directly with `react-hook-form` + `Label`/`Input`/`Select`, via the shared
+  `components/form-field.tsx` wrapper (label + input + error message).
+- **`Avatar` has no `size` prop** — size via Tailwind classes (`className="h-8 w-8"`), not a
+  variant prop.
 
 ## Re-skinning later
 

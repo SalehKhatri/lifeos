@@ -12,7 +12,7 @@ Update this as you go. Keep notes short — one line per item is enough.
 | DB + ORM decision                 | ✅     | Postgres + Prisma 7 |
 | Postgres schema / migrations      | ✅     | `init` migration applied to local `lifeos` DB; User/Task/Project/ScheduleBlock/Category |
 | Backend project scaffold          | ✅     | env config, Prisma singleton, error middleware, JWT auth middleware, app.ts/server.ts |
-| Frontend project scaffold         | 🔄     | foundation done (shadcn/ui + react-hook-form + zod + TanStack Query + Motion, API client, auth hooks, cyberpunk design system — see `frontend/DESIGN.md`); no real pages yet beyond a temporary design preview at `/` |
+| Frontend project scaffold         | 🔄     | in progress, see ## Frontend section below for detail |
 
 ## Auth
 
@@ -80,7 +80,26 @@ Update this as you go. Keep notes short — one line per item is enough.
 | Item                | Status | Notes |
 | ------------------- | ------ | ----- |
 | /today endpoint     | ✅     | `modules/today` — top task + up to 3 "up next" (both from Recommendations) + today's fixed commitments (from Schedule) |
-| Frontend Today page | 🔲     |       |
+| Frontend Today page | 🔲     | see Frontend section below |
+
+## Frontend
+
+Building phase-by-phase (see the approved plan, referenced in chat). Design system,
+tokens, and conventions fully documented in `frontend/DESIGN.md` — read that before
+styling anything new.
+
+| Item                                 | Status | Notes |
+| ------------------------------------- | ------ | ----- |
+| Foundation (Phase 0)                  | ✅     | shadcn/ui + react-hook-form + zod + TanStack Query + Motion; `lib/api-client.ts`, `lib/query-client.tsx`, `types/`, `features/auth/{api,hooks}.ts` |
+| Design system                         | ✅     | "blend" cyberpunk theme (cyan primary, magenta/amber deliberate accents), dark-only, 4-tier typography (Orbitron/Chakra Petch/Geist Sans/Geist Mono), subtle-&-snappy Motion conventions — all in `frontend/DESIGN.md` |
+| Auth pages (login/register)           | ✅     | `AuthLayout` (two-column, ambient cursor-reactive glow orbs), name required, timezone auto-detected + shown read-only, API errors as toast (not inline banner — layout-shift lesson), field errors inline+animated |
+| Nav shell + route guard               | ✅     | text-only nav (no icons/avatar — reads "dashboard" otherwise), animated underline indicator via Motion `layoutId`, `useCurrentUser()` *is* the auth state (no separate Context) |
+| Command palette (Cmd/Ctrl+K)          | ✅     | brought into v1 scope deliberately (see `docs/MVP_SPEC.md` §7) — data-driven `COMMANDS` array, digit-key (1-9) instant-select, footer shortcut hints |
+| Tasks + Categories page                | 🔲     | Phase 2 |
+| Projects page                          | 🔲     | Phase 3 |
+| Schedule page                          | 🔲     | Phase 4 |
+| Today page                             | 🔲     | Phase 5 — the priority page per `docs/ARCHITECTURE.md` |
+| Settings page                          | 🔲     | Phase 6 |
 
 ## Known Issues / Fixes Needed
 
@@ -363,3 +382,21 @@ Short record of decisions made and why, so you don't relitigate them later.
   stray root-level `package.json`/`package-lock.json`/`node_modules` (caught
   via a Turbopack "multiple lockfiles" warning, not silently). Removed (was
   untracked, never committed) and reinstalled correctly inside `frontend/`.
+- 2026-08-19 — Nav shell reworked after user feedback (read as generic
+  SaaS-admin dashboard, not Jarvis/HUD): dropped Lucide icons + avatar
+  entirely, went text-only with an animated underline that slides between
+  active nav items (Motion `layoutId`). Full reasoning + the "reactive, not
+  static" standing principle this established are in `frontend/DESIGN.md`.
+- 2026-08-19 — Command palette (Cmd/Ctrl+K) deliberately brought into v1
+  scope — was `MVP_SPEC.md`'s "Out of Scope: keyboard shortcuts, command
+  palette" line; user explicitly asked for keyboard-first fast access
+  instead of clicking through multiple pages. `MVP_SPEC.md` updated (§7,
+  Out of Scope line removed) rather than silently drifting past a locked
+  scope decision. Instant-select via digit keys 1-9, not mnemonic letters —
+  full reasoning (input-focus conflicts, browser-reserved Cmd+letter
+  shortcuts) in `frontend/DESIGN.md`.
+- 2026-08-19 — General nav keyboard-accessibility pass: every interactive nav
+  element (links, ⌘K button, user menu trigger) got an explicit
+  `focus-visible` cyan-glow ring — several had none before (relying on
+  browser default), which isn't acceptable given the explicit ask for the
+  whole app to be fully keyboard-operable.
