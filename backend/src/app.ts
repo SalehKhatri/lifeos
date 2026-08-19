@@ -6,6 +6,8 @@ import { categoriesRouter } from "./modules/categories";
 import { tasksRouter } from "./modules/tasks";
 import { projectsRouter } from "./modules/projects";
 import { scheduleRouter } from "./modules/schedule";
+import { recommendationsRouter } from "./modules/recommendations";
+import { todayRouter } from "./modules/today";
 import { errorHandler, notFoundHandler } from "./shared/middleware/errorHandler";
 import { env } from "./shared/config/env";
 
@@ -27,6 +29,8 @@ export function createApp() {
   app.use("/tasks", tasksRouter);
   app.use("/projects", projectsRouter);
   app.use("/schedule", scheduleRouter);
+  app.use("/recommendations", recommendationsRouter);
+  app.use("/today", todayRouter);
 
   // Must be last: 404 catch-all, then the centralized error handler.
   app.use(notFoundHandler);

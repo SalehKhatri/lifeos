@@ -37,6 +37,16 @@ export async function getTask(taskId: string, userId: string) {
   return getOwnedTaskOrThrow(taskId, userId);
 }
 
+// Shared with the Recommendations module (via index.ts): every not-yet-done
+// task, with category + project included so Recommendations can filter out
+// ON_HOLD/ARCHIVED projects without depending on the Projects module itself.
+export async function getRecommendableTasks(userId: string) {
+  return prisma.task.findMany({
+    where: { userId, status: { not: TaskStatus.DONE } },
+    include: INCLUDE_RELATIONS,
+  });
+}
+
 export async function createTask(userId: string, input: CreateTaskInput) {
   if (input.categoryId !== undefined) {
     await getUsableCategoryOrThrow(input.categoryId, userId);

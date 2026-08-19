@@ -29,8 +29,8 @@ and module coupling rules.
 | Tasks (CRUD + complete, filterable) | ✅ Done |
 | Projects (CRUD, auto progress %) | ✅ Done |
 | Schedule (recurring weekly availability, CRUD) | ✅ Done |
-| Prioritization Engine (`/recommendations`) | 🔲 Not started |
-| Today View (`/today`) | 🔲 Not started |
+| Prioritization Engine (`/recommendations`) | ✅ Done |
+| Today View (`/today`) | ✅ Done |
 | Frontend | 🔲 Not started (default `create-next-app` output) |
 
 Full detail, notes, and decisions: [`docs/PROGRESS.md`](docs/PROGRESS.md).
@@ -67,6 +67,9 @@ GET    /schedule            # ?dayOfWeek=
 POST   /schedule
 PATCH  /schedule/:id
 DELETE /schedule/:id
+
+GET    /recommendations     # ranked tasks + reason string, see docs/MVP_SPEC.md §5 for the formula
+GET    /today                # top task + up to 3 "up next" + today's fixed commitments
 ```
 
 A documented Postman collection (`LifeOS API`, with request/response examples and error

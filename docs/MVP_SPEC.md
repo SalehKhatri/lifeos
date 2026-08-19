@@ -79,6 +79,36 @@ overlapping intervals when computing available time, not Schedule's.
 Deterministic scoring using: deadline urgency, priority, duration fit vs. available time.
 Output: ranked task list + short plain-language reason per task.
 
+Formula locked 2026-08-18 (full reasoning in `docs/PROGRESS.md` Decisions Log).
+Not further specified before this — everything below was a judgment call made
+when it was built, easiest to retune later:
+
+- **Urgency (weight 0.45)** — bucketed by LOCAL CALENDAR DAY distance to the
+  deadline (via `User.timezone`), not a rolling hour window — "due today"
+  means "before local midnight tonight". Overdue (deadline instant already
+  passed) → 100 · due today → 90 · due tomorrow → 70 · within 3 days → 50 ·
+  within 7 days → 30 · later or no deadline → 10.
+- **Priority (weight 0.30)** — direct mapping: LOW=25, MEDIUM=50, HIGH=75,
+  URGENT=100.
+- **Duration fit (weight 0.25)** — `min(100, availableMinutesToday /
+  estimatedDuration × 100)`. `availableMinutesToday` = remaining
+  not-yet-elapsed `ScheduleBlock` minutes left today, computed once per
+  request from the current local time, not stored. Tasks needing more time
+  than's left score lower, never excluded — a big urgent task may still be
+  worth starting. Overlapping same-day blocks are NOT merged (summed as-is) —
+  a known simplification, revisit if it produces visibly wrong numbers.
+- **Combined score** = `0.45×urgency + 0.30×priority + 0.25×fit`. Ties broken
+  deterministically: earlier deadline first (no deadline last), then older
+  task first — the whole engine is meant to be deterministic, so ties can't
+  be left to insertion-order luck.
+- **Reason string** — template-based (not LLM-generated — see Out of Scope),
+  built from whichever signals actually stood out for that task (deadline
+  bucket, HIGH/URGENT priority, notably-good or notably-bad fit). Falls back
+  to "Ranked by priority and deadline" when nothing stands out.
+- Tasks under an `ON_HOLD` or `ARCHIVED` project are excluded entirely
+  (user-confirmed 2026-08-18) — everything else (no project, `ACTIVE`,
+  `COMPLETED`) is eligible.
+
 ### 6. Today View
 
 - Top recommended task

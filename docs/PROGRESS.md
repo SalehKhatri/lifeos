@@ -64,22 +64,22 @@ Update this as you go. Keep notes short — one line per item is enough.
 | Edit schedule block       | ✅     | `PATCH /schedule/:id` — added beyond original locked API surface, see Decisions Log; time-order re-validated against merged (existing + new) values |
 | Delete schedule block     | ✅     |       |
 | List/filter schedule      | ✅     | `GET /schedule?dayOfWeek=`, ordered by day then start time |
-| Compute today's free time | 🔲     | belongs to the Prioritization Engine, not Schedule itself |
+| Compute today's free time | ✅     | `recommendations.service.ts`'s `computeAvailableMinutesToday` — sums not-yet-elapsed block minutes for today; overlaps not merged (known simplification) |
 
 ## Prioritization Engine
 
 | Item                            | Status | Notes |
 | ------------------------------- | ------ | ----- |
-| Scoring formula designed        | 🔲     |       |
-| Scoring formula implemented     | 🔲     |       |
-| Reason generation ("why this?") | 🔲     |       |
-| /recommendations endpoint       | 🔲     |       |
+| Scoring formula designed        | ✅     | urgency 0.45 / priority 0.30 / fit 0.25, see `MVP_SPEC.md` §5 for full formula |
+| Scoring formula implemented     | ✅     | `modules/recommendations/scoring.ts` (pure functions) + `recommendations.service.ts` (orchestration) |
+| Reason generation ("why this?") | ✅     | template-based, not LLM — falls back to "Ranked by priority and deadline" |
+| /recommendations endpoint       | ✅     | excludes ON_HOLD/ARCHIVED-project tasks and DONE tasks; deterministic tie-break (deadline, then createdAt) |
 
 ## Today View
 
 | Item                | Status | Notes |
 | ------------------- | ------ | ----- |
-| /today endpoint     | 🔲     |       |
+| /today endpoint     | ✅     | `modules/today` — top task + up to 3 "up next" (both from Recommendations) + today's fixed commitments (from Schedule) |
 | Frontend Today page | 🔲     |       |
 
 ## Known Issues / Fixes Needed
@@ -87,6 +87,7 @@ Update this as you go. Keep notes short — one line per item is enough.
 | Issue | Severity | Notes |
 | ----- | -------- | ----- |
 | No rate limiting on `/auth/login` and `/auth/register` | High | Nothing currently stops brute-forcing a password or hammering registration for account enumeration/spam. Not listed in `MVP_SPEC.md` Out of Scope — this is an unflagged gap, not a deliberate deferral. Cookie/JWT handling itself is otherwise solid (httpOnly, `sameSite: lax`, `secure` in production, 32+ char secret enforced). |
+| Postman sync pending for Schedule, Recommendations, Today | Low | The 2026-08-16 Postman sync covered Auth/Categories/Tasks/Projects only — Schedule (built same day, after that sync) and Recommendations/Today (built 2026-08-18) still need it. |
 
 ## Decisions Log
 
@@ -278,3 +279,35 @@ Short record of decisions made and why, so you don't relitigate them later.
   Known Issue — it was already stale when written (Auth/Categories/Tasks had
   been synced earlier in the same session) and is now fully resolved,
   including the `projectId` wiring on Tasks and the new Projects module.
+- 2026-08-18 — Prioritization Engine formula locked (see `MVP_SPEC.md` §5 for
+  the full spec). Key calls: urgency bucketed by LOCAL CALENDAR DAY distance
+  to the deadline (via `User.timezone`), not a rolling hour window, so "due
+  today" means "before local midnight tonight" — verified live with a deadline
+  exactly 30 hours out landing in the "due tomorrow" bucket because it crossed
+  a calendar-day boundary, not because of the raw hour count. Weights
+  (0.45/0.30/0.25) are the most arbitrary part and the easiest to retune.
+  Deterministic tie-break added (deadline, then createdAt) since the whole
+  point of this engine is determinism — ties can't be left to insertion order.
+- 2026-08-18 — Tasks under `ON_HOLD`/`ARCHIVED` projects are excluded from
+  recommendations entirely (user-confirmed). `Task.project` is already
+  included via Tasks' own `getRecommendableTasks` (added for this purpose,
+  exported via `modules/tasks/index.ts`), so Recommendations never needs to
+  depend on the Projects module directly for this — avoids yet another
+  cross-module dependency.
+- 2026-08-18 — Recommendations depends on Auth (`getProfile`, for
+  `timezone`), Tasks (`getRecommendableTasks`), and Schedule
+  (`listScheduleBlocks`) — all via each module's `index.ts`. Today depends on
+  Auth, Recommendations, and Schedule the same way. Both are one-way (leaf
+  modules never import back), so this doesn't hit the same circular-dependency
+  problem the Tasks↔Projects progress calculation did.
+- 2026-08-18 — Added `shared/utils/timezone.ts` (`getLocalDayAndMinutes`,
+  `daysBetweenLocalDates`) — generic, business-rule-free Intl-based
+  conversions, not specific to Recommendations, so they live in `shared/` like
+  `shared/utils/params.ts` rather than inside the module.
+- 2026-08-18 — Verified the full engine live with a scripted test (dynamic
+  relative deadlines, not just fixed fixtures): every printed score
+  hand-checked against the formula and matched exactly; confirmed completed
+  tasks, ON_HOLD-project tasks, and ACTIVE-project tasks are
+  excluded/included correctly; confirmed graceful empty-state (`/today` with
+  zero tasks returns `topTask: null`, not an error); confirmed the reason
+  fallback string triggers correctly when no signal stands out.
