@@ -27,8 +27,13 @@ export class ApiError extends Error {
 type QueryValue = string | number | boolean | undefined;
 
 // Omits undefined values so `{ status: undefined }` doesn't become "?status=undefined".
-export function toQueryString(params: Record<string, QueryValue>): string {
-  const entries = Object.entries(params).filter(
+// Takes a plain `object`, not Record<string, QueryValue> (even generically
+// constrained) — a plain interface like TaskFilters doesn't structurally
+// satisfy a Record's index-signature requirement even when every property
+// matches, so a Record-shaped param type rejects real callers at the call
+// site. The values are cast to QueryValue internally instead.
+export function toQueryString(params: object): string {
+  const entries = (Object.entries(params) as [string, QueryValue][]).filter(
     (entry): entry is [string, string | number | boolean] => entry[1] !== undefined,
   );
   if (entries.length === 0) return "";

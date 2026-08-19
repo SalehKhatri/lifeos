@@ -95,7 +95,7 @@ styling anything new.
 | Auth pages (login/register)           | ✅     | `AuthLayout` (two-column, ambient cursor-reactive glow orbs), name required, timezone auto-detected + shown read-only, API errors as toast (not inline banner — layout-shift lesson), field errors inline+animated |
 | Nav shell + route guard               | ✅     | text-only nav (no icons/avatar — reads "dashboard" otherwise), animated underline indicator via Motion `layoutId`, `useCurrentUser()` *is* the auth state (no separate Context) |
 | Command palette (Cmd/Ctrl+K)          | ✅     | brought into v1 scope deliberately (see `docs/MVP_SPEC.md` §7) — data-driven `COMMANDS` array, digit-key (1-9) instant-select, footer shortcut hints |
-| Tasks + Categories page                | 🔲     | Phase 2 |
+| Tasks + Categories page                | ✅     | Phase 2 — filters, list, create/edit Sheet, delete, inline category manager |
 | Projects page                          | 🔲     | Phase 3 |
 | Schedule page                          | 🔲     | Phase 4 |
 | Today page                             | 🔲     | Phase 5 — the priority page per `docs/ARCHITECTURE.md` |
@@ -400,3 +400,26 @@ Short record of decisions made and why, so you don't relitigate them later.
   `focus-visible` cyan-glow ring — several had none before (relying on
   browser default), which isn't acceptable given the explicit ask for the
   whole app to be fully keyboard-operable.
+- 2026-08-19 — Phase 2 (Tasks + Categories) built. `features/categories/`
+  (api+hooks+`CategoryManager`, a Popover-based quick add/delete scoped to
+  the user's own categories, mounted inline next to the task form's category
+  select — no top-level nav item, matching `ARCHITECTURE.md` which only
+  names Today/Tasks/Projects/Schedule as pages). `features/tasks/`
+  (api+hooks+`TaskFormSheet`/`TaskList`/`TaskFilters`), tied together in
+  `/tasks`. `lib/api-client.ts`'s `toQueryString` signature changed from
+  `Record<string, QueryValue>` to plain `object` (cast internally) — a
+  concrete interface like `TaskFilters` doesn't structurally satisfy an
+  index-signature type in TS even when every property matches.
+  `estimatedDuration` uses plain `z.number().int().positive()` +
+  `register(..., { valueAsNumber: true })` rather than `z.coerce.number()`,
+  since coerce schemas have mismatched input/output types that break
+  `useForm<T>`'s generic. `useCompleteTask` deliberately has no success
+  toast (error only) — the checkbox's own visual state is the feedback;
+  a toast on every checkbox click on a frequent action would be noise.
+  `TaskList`'s delete confirmation is a single shared, state-controlled
+  `AlertDialog` rather than an `AlertDialogTrigger` nested inside a
+  `DropdownMenuItem` — that nested pattern fights the menu's
+  close-on-select behavior and Base UI's portal/focus handling (this
+  project has already hit a few Base UI-vs-Radix surprises). Project select
+  is intentionally not on the task form yet — Projects (Phase 3) doesn't
+  exist to list from until that phase lands.
