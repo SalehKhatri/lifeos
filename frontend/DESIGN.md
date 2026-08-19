@@ -201,6 +201,17 @@ examples you'll find in most shadcn docs/tutorials online. Differences actually 
   `components/form-field.tsx` wrapper (label + input + error message).
 - **`Avatar` has no `size` prop** — size via Tailwind classes (`className="h-8 w-8"`), not a
   variant prop.
+- **`Select.Value` shows the raw value, not the label, until the popup has mounted its items
+  at least once.** Base UI resolves a selected value to a label by looking it up in items
+  registered by mounted `Select.Item`s — if the popup was never opened (pre-filled filters
+  defaulting to "all", or a form pre-filled for edit), there's nothing to look up yet, so the
+  trigger shows the raw sentinel/enum value/id instead of a readable label. Fix: pass
+  `Select`'s (i.e. `Select.Root`'s) `items` prop — a plain `{ value: label }` map — and it
+  resolves immediately regardless of mount state. Do this for every `Select` whose value can
+  be set programmatically (filters, edit-mode form fields) — caught 2026-08-19 on the task
+  filters (`__all__` sentinel showing literally) and the task form's category select (showing
+  the category id). Build the map dynamically for data-driven options (e.g.
+  `Object.fromEntries(categories.map(c => [c.id, c.name]))`).
 
 ## Re-skinning later
 
