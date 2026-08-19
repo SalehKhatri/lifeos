@@ -48,6 +48,14 @@ type TaskFormValues = z.infer<typeof taskFormSchema>;
 
 const NO_CATEGORY = "__none__";
 
+// Base UI's <Select.Value> only resolves a value to its label from items
+// that have actually mounted inside the popup — i.e. after it's been opened
+// at least once. Editing a task pre-fills these selects without the user
+// ever opening them, so without an explicit `items` label map the trigger
+// would show the raw enum/id instead of a readable label.
+const PRIORITY_ITEMS = { LOW: "Low", MEDIUM: "Medium", HIGH: "High", URGENT: "Urgent" };
+const STATUS_ITEMS = { TODO: "To do", IN_PROGRESS: "In progress", DONE: "Done" };
+
 const EMPTY_VALUES: TaskFormValues = {
   title: "",
   description: "",
@@ -71,6 +79,11 @@ export function TaskFormSheet({ open, onOpenChange, task }: TaskFormSheetProps) 
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const isEditing = Boolean(task);
+
+  const categoryItems = {
+    [NO_CATEGORY]: "No category",
+    ...Object.fromEntries((categories ?? []).map((c) => [c.id, c.name])),
+  };
 
   const {
     register,
@@ -159,7 +172,7 @@ export function TaskFormSheet({ open, onOpenChange, task }: TaskFormSheetProps) 
                   control={control}
                   name="priority"
                   render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
+                    <Select items={PRIORITY_ITEMS} value={field.value} onValueChange={field.onChange}>
                       <SelectTrigger id="priority" className="w-full">
                         <SelectValue />
                       </SelectTrigger>
@@ -194,7 +207,7 @@ export function TaskFormSheet({ open, onOpenChange, task }: TaskFormSheetProps) 
                   control={control}
                   name="status"
                   render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
+                    <Select items={STATUS_ITEMS} value={field.value} onValueChange={field.onChange}>
                       <SelectTrigger id="status" className="w-full">
                         <SelectValue />
                       </SelectTrigger>
@@ -219,7 +232,7 @@ export function TaskFormSheet({ open, onOpenChange, task }: TaskFormSheetProps) 
                   control={control}
                   name="categoryId"
                   render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
+                    <Select items={categoryItems} value={field.value} onValueChange={field.onChange}>
                       <SelectTrigger id="categoryId" className="w-full">
                         <SelectValue />
                       </SelectTrigger>
