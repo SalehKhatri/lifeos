@@ -89,6 +89,12 @@ one-off exception.
 - Keep pages thin — data fetching via hooks, UI in components, no business logic in JSX.
 - Today page is the priority page. Everything else (Tasks, Projects, Schedule) can be simpler
   CRUD-style pages initially.
+- UI built with shadcn/ui + react-hook-form + zod (2026-08-19, see `docs/PROGRESS.md`
+  Decisions Log). Visual direction ("blend" cyberpunk — cyan primary, magenta/amber as
+  deliberate secondary accents) and the full token/animation system are documented in
+  `frontend/DESIGN.md` — read that before styling anything. Built to be re-themed later
+  without touching component code: colors/shadows are all CSS-variable tokens, animation
+  timing is centralized in `frontend/src/lib/motion.ts`.
 
 ## Testing
 

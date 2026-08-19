@@ -1,26 +1,243 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
+  /* Headings + small uppercase tracked labels — literal names, not
+     var(--font-chakra-petch): @theme inline resolves at parse time, so a
+     runtime next/font variable doesn't reliably apply here (same gotcha as
+     --font-sans above). */
+  --font-heading: "Chakra Petch", "Geist", ui-sans-serif, system-ui, sans-serif;
+  /* Wordmark only ("LIFEOS") — see frontend/DESIGN.md. */
+  --font-brand: "Orbitron", "Geist", ui-sans-serif, system-ui, sans-serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  /* Cyberpunk "blend" theme — deliberate accent tokens, kept separate from
+     shadcn's built-in --accent/--secondary/--muted (those stay tasteful,
+     muted neutrals for ordinary hover states). These three are opt-in,
+     used only where something should actually stand out — see
+     frontend/DESIGN.md for the full convention. */
+  --color-accent-cyan: var(--accent-cyan);
+  --color-accent-cyan-foreground: var(--accent-cyan-foreground);
+  --color-accent-magenta: var(--accent-magenta);
+  --color-accent-magenta-foreground: var(--accent-magenta-foreground);
+  --color-accent-amber: var(--accent-amber);
+  --color-accent-amber-foreground: var(--accent-amber-foreground);
+  --shadow-glow-cyan: var(--glow-cyan);
+  --shadow-glow-magenta: var(--glow-magenta);
+  --shadow-glow-amber: var(--glow-amber);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.375rem; /* slightly sharper/more precise than shadcn's default 0.625rem — fits the HUD feel */
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  /* --- Cyberpunk "blend" theme --------------------------------------------
+     Deep near-black with a cool cyan undertone, cyan as the primary HUD
+     color, magenta/amber reserved as deliberate secondary accents (not
+     wired into shadcn's generic hover states — see the tokens above and
+     frontend/DESIGN.md). Change values here to re-skin the whole app;
+     component code should never hardcode a color. */
+  --background: oklch(0.13 0.02 240);
+  --foreground: oklch(0.96 0.01 200);
+  --card: oklch(0.18 0.02 240);
+  --card-foreground: oklch(0.96 0.01 200);
+  --popover: oklch(0.19 0.02 240);
+  --popover-foreground: oklch(0.96 0.01 200);
+  --primary: oklch(0.78 0.16 195);
+  --primary-foreground: oklch(0.12 0.02 240);
+  --secondary: oklch(0.24 0.02 245);
+  --secondary-foreground: oklch(0.92 0.01 200);
+  --muted: oklch(0.22 0.015 245);
+  --muted-foreground: oklch(0.65 0.02 220);
+  --accent: oklch(0.26 0.02 245);
+  --accent-foreground: oklch(0.96 0.01 200);
+  --destructive: oklch(0.62 0.22 25);
+  --border: oklch(0.5 0.08 200 / 20%);
+  --input: oklch(0.5 0.08 200 / 15%);
+  --ring: oklch(0.78 0.16 195);
+  --chart-1: oklch(0.78 0.16 195);
+  --chart-2: oklch(0.62 0.24 330);
+  --chart-3: oklch(0.78 0.15 70);
+  --chart-4: oklch(0.75 0.18 145);
+  --chart-5: oklch(0.6 0.2 250);
+  --sidebar: oklch(0.11 0.02 240);
+  --sidebar-foreground: oklch(0.96 0.01 200);
+  --sidebar-primary: oklch(0.78 0.16 195);
+  --sidebar-primary-foreground: oklch(0.12 0.02 240);
+  --sidebar-accent: oklch(0.22 0.02 245);
+  --sidebar-accent-foreground: oklch(0.96 0.01 200);
+  --sidebar-border: oklch(0.5 0.08 200 / 15%);
+  --sidebar-ring: oklch(0.78 0.16 195);
+
+  /* Deliberate accent colors — used only where something should genuinely
+     stand out (urgent priority, the Today page's top task, AI-ish
+     highlights), not for ordinary hover/focus states. */
+  --accent-cyan: oklch(0.78 0.16 195);
+  --accent-cyan-foreground: oklch(0.12 0.02 240);
+  --accent-magenta: oklch(0.62 0.24 330);
+  --accent-magenta-foreground: oklch(0.97 0.02 340);
+  --accent-amber: oklch(0.78 0.15 70);
+  --accent-amber-foreground: oklch(0.12 0.02 240);
+
+  /* Glow shadows — pair with the matching accent color's border/text.
+     Two layers: a soft wide bloom + a tight bright rim. */
+  --glow-cyan: 0 0 16px 1px oklch(0.78 0.16 195 / 0.35), 0 0 2px oklch(0.78 0.16 195 / 0.6);
+  --glow-magenta: 0 0 16px 1px oklch(0.62 0.24 330 / 0.35), 0 0 2px oklch(0.62 0.24 330 / 0.6);
+  --glow-amber: 0 0 16px 1px oklch(0.78 0.15 70 / 0.35), 0 0 2px oklch(0.78 0.15 70 / 0.6);
+
+  /* Translucent "glass" HUD panel surface — opt-in via .glass-panel, not
+     the default Card background (keeps ordinary cards cheap/opaque; glass
+     + backdrop-blur reserved for a few deliberate surfaces). */
+  --glass-bg: oklch(0.18 0.02 240 / 55%);
+  --glass-border: oklch(0.78 0.16 195 / 25%);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+
+  /* Global safety net regardless of what Motion does per-component. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* --- Cyberpunk "blend" theme utilities ------------------------------------
+   Opt-in, used deliberately (a handful of surfaces), not globally applied.
+   See frontend/DESIGN.md for when to reach for each one. */
+@layer components {
+  .glass-panel {
+    background-color: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .glow-cyan {
+    box-shadow: var(--glow-cyan);
+    border-color: var(--accent-cyan);
+  }
+  .glow-magenta {
+    box-shadow: var(--glow-magenta);
+    border-color: var(--accent-magenta);
+  }
+  .glow-amber {
+    box-shadow: var(--glow-amber);
+    border-color: var(--accent-amber);
+  }
+
+  /* Faint HUD grid — cheap CSS gradient, no image/canvas. Apply to large
+     background containers only (e.g. the (app) layout shell), never to
+     individual cards or frequently-repainted/scrolling elements. */
+  .hud-grid-bg {
+    background-image:
+      linear-gradient(oklch(0.78 0.16 195 / 6%) 1px, transparent 1px),
+      linear-gradient(90deg, oklch(0.78 0.16 195 / 6%) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  /* Ambient/continuous effects: plain CSS, not Motion — cheaper to run
+     forever (e.g. on the Today page's top-task card) than a JS-driven loop. */
+  .animate-pulse-glow {
+    animation: pulse-glow 3s ease-in-out infinite;
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: var(--glow-cyan);
+  }
+  50% {
+    box-shadow: 0 0 24px 2px oklch(0.78 0.16 195 / 0.45), 0 0 3px oklch(0.78 0.16 195 / 0.7);
+  }
 }

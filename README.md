@@ -12,7 +12,7 @@ Full locked scope: [`docs/MVP_SPEC.md`](docs/MVP_SPEC.md). Current status per fe
 | Layer    | Choice                                    |
 | -------- | ------------------------------------------ |
 | Backend  | Node.js + Express + TypeScript + Prisma     |
-| Frontend | Next.js + TypeScript + Tailwind             |
+| Frontend | Next.js + TypeScript + Tailwind + shadcn/ui + TanStack Query |
 | Database | PostgreSQL                                  |
 | Auth     | JWT, delivered via httpOnly cookie          |
 
@@ -31,7 +31,7 @@ and module coupling rules.
 | Schedule (recurring weekly availability, CRUD) | ✅ Done |
 | Prioritization Engine (`/recommendations`) | ✅ Done |
 | Today View (`/today`) | ✅ Done |
-| Frontend | 🔲 Not started (default `create-next-app` output) |
+| Frontend | 🔄 In progress — foundation + design system done, pages not built yet (see `frontend/DESIGN.md`) |
 
 Full detail, notes, and decisions: [`docs/PROGRESS.md`](docs/PROGRESS.md).
 
@@ -117,8 +117,12 @@ Required env vars (see `.env.example`):
 ```bash
 cd frontend
 npm install
+cp .env.example .env.local   # NEXT_PUBLIC_API_URL, defaults to http://localhost:4000
 npm run dev              # http://localhost:3000
 ```
+
+Design system (colors, glow/glass utilities, typography, animation conventions):
+[`frontend/DESIGN.md`](frontend/DESIGN.md).
 
 ## Docs
 

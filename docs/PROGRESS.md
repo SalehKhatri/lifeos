@@ -12,7 +12,7 @@ Update this as you go. Keep notes short — one line per item is enough.
 | DB + ORM decision                 | ✅     | Postgres + Prisma 7 |
 | Postgres schema / migrations      | ✅     | `init` migration applied to local `lifeos` DB; User/Task/Project/ScheduleBlock/Category |
 | Backend project scaffold          | ✅     | env config, Prisma singleton, error middleware, JWT auth middleware, app.ts/server.ts |
-| Frontend project scaffold         | 🔲     | still default create-next-app output; TanStack Query not yet added |
+| Frontend project scaffold         | 🔄     | foundation done (shadcn/ui + react-hook-form + zod + TanStack Query + Motion, API client, auth hooks, cyberpunk design system — see `frontend/DESIGN.md`); no real pages yet beyond a temporary design preview at `/` |
 
 ## Auth
 
@@ -311,3 +311,55 @@ Short record of decisions made and why, so you don't relitigate them later.
   excluded/included correctly; confirmed graceful empty-state (`/today` with
   zero tasks returns `topTask: null`, not an error); confirmed the reason
   fallback string triggers correctly when no signal stands out.
+- 2026-08-19 — Frontend build kicked off, planned phase-by-phase (see the
+  approved plan). UI toolkit: shadcn/ui + react-hook-form + zod (user's
+  explicit choice among three options) — new dependencies/patterns beyond
+  `ARCHITECTURE.md`, flagged per `CLAUDE.md` before deciding. Auth state /
+  route guard: a `useCurrentUser()` TanStack Query hook *is* the auth state,
+  no separate React Context — keeps JWT verification exclusively in the
+  backend (frontend never needs `JWT_SECRET`), which matters since these are
+  two independently deployable services.
+- 2026-08-19 — Visual direction: "blend" cyberpunk theme (cyan primary,
+  magenta/amber as deliberate secondary accents — not wired into shadcn's
+  generic hover states, reserved for signals that should actually stand out),
+  dark-only for v1, subtle & snappy animations (not showy/cinematic) via
+  `motion` (Framer Motion). Explicit user requirement: keep the design
+  genuinely re-themeable later (they may want a different look once it's
+  fully built) — every color/shadow is a CSS-variable token, animation timing
+  centralized in `frontend/src/lib/motion.ts`, all documented in the new
+  `frontend/DESIGN.md`, which is the source of truth for this system
+  (`docs/ARCHITECTURE.md`'s Frontend section just points to it).
+- 2026-08-19 — Four-tier typography, decided live by comparing real rendered
+  candidates (font choice isn't judgeable from text description) in a
+  temporary preview page: Orbitron for the "LIFEOS" wordmark only (too
+  wide/blocky for anything smaller), Chakra Petch for headings *and* small
+  uppercase tracked labels (same "micro-heading" tier), Geist Sans kept for
+  body/secondary text (highest-volume, most-read text — stays on the font
+  built for dense UI reading, not a display face), Geist Mono kept for
+  data-like elements (scores, timestamps, durations).
+- 2026-08-19 — Known shadcn + Tailwind v4 + Next.js gotcha hit and fixed:
+  `@theme inline` resolves CSS variables at parse time, so pointing
+  `--font-sans`/`--font-heading`/`--font-brand` at a `next/font`-injected
+  runtime variable (e.g. `var(--font-geist-sans)`) doesn't reliably apply —
+  fixed by using literal font-family name strings instead, for all four
+  fonts.
+- 2026-08-19 — This shadcn CLI version (4.18.0) differs from older
+  documentation in a few ways worth remembering: default style resolved to
+  "base-nova"/"base" rather than "new-york" (not fought back to a specific
+  named style — just used what `-d` actually produced); uses `@base-ui/react`
+  or Base UI/Radix depending on component rather than only `@radix-ui/react-*`
+  packages; the `form` registry item is an empty stub in this version (no
+  generated `form.tsx`) — forms are composed directly with `react-hook-form` +
+  the `Label`/`Input`/`Select` primitives instead.
+- 2026-08-19 — HTTP client: native `fetch`, not axios (user asked directly,
+  wanted the long-term reasoning, not just "boring/simple"). Fetch's native
+  `ReadableStream` fits future streaming/AI use cases (relevant given the
+  longer-term "Jarvis"-style ambition) better than axios historically has;
+  Next.js's fetch-specific caching extensions are available if server-side
+  data fetching is ever added; TanStack Query's cancellation model is built
+  around `AbortController`, which fetch consumes natively.
+- 2026-08-19 — Fixed a self-inflicted bug: `npm install motion` was
+  accidentally run from the repo root instead of `frontend/`, creating a
+  stray root-level `package.json`/`package-lock.json`/`node_modules` (caught
+  via a Turbopack "multiple lockfiles" warning, not silently). Removed (was
+  untracked, never committed) and reinstalled correctly inside `frontend/`.
