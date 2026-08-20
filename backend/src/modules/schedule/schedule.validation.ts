@@ -16,6 +16,11 @@ const endTimeSchema = z
   .min(0)
   .max(1440, "Must be minutes since midnight (0-1440, where 1440 = midnight)");
 const labelSchema = z.string().trim().min(1, "Label cannot be empty").max(100);
+// Client-generated (crypto.randomUUID()), not validated for a specific
+// shape — it's an opaque grouping tag (see schema.prisma's comment on
+// ScheduleBlock.pairId), not a real ID the backend ever generates or
+// dereferences itself, so it just needs to be a reasonable string.
+const pairIdSchema = z.string().trim().min(1).max(100);
 
 export const createScheduleBlockSchema = z
   .object({
@@ -23,6 +28,7 @@ export const createScheduleBlockSchema = z
     startTime: startTimeSchema,
     endTime: endTimeSchema,
     label: labelSchema,
+    pairId: pairIdSchema.optional(),
   })
   .refine((data) => data.startTime < data.endTime, {
     message: "startTime must be before endTime",

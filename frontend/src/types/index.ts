@@ -60,9 +60,14 @@ export interface ScheduleBlock {
   id: string;
   userId: string;
   dayOfWeek: number; // 0 = Sunday ... 6 = Saturday
-  startTime: number; // minutes since midnight
-  endTime: number; // minutes since midnight
+  startTime: number; // minutes since midnight (0-1439)
+  endTime: number; // minutes since midnight (0-1440; 1440 = exactly midnight)
   label: string;
+  // Client-generated grouping tag linking the two rows an overnight-
+  // spanning commitment gets split into (see backend schema.prisma's
+  // comment on ScheduleBlock.pairId) — null for every ordinary same-day
+  // block.
+  pairId: string | null;
   createdAt: string;
   updatedAt: string;
 }

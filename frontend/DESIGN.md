@@ -383,6 +383,42 @@ reinventing per component:
   code needed to change — `formatClockTime(1440)` already renders as "12:00 AM" (the
   correct display for "reaches midnight" as an end time), and every duration calculation is
   plain subtraction that works the same regardless of the specific numbers involved.
+- **Overnight commitments are now properly linked (`ScheduleBlock.pairId`), replacing the
+  "two independent, unmanaged rows" version above.** User-reported real friction: managing
+  the two halves manually (edit both if the time changes, delete both to remove the whole
+  shift) after the split feature above shipped. Chose the backend-link option over a
+  frontend-only heuristic-merge, since the latter risks two genuinely unrelated commitments
+  that happen to match the pattern (same label, adjacent days, midnight boundary) getting
+  incorrectly treated as a pair.
+  - **`pairId` is an opaque client-generated tag** (`crypto.randomUUID()`), not a real
+    foreign key/relation — deliberately simple; it's a grouping label, not a referential
+    link one row "points to." Migration added a single nullable, indexed column
+    (`schedule.prisma`), no backfill needed (every existing row is a plain, unpaired block).
+  - **Editing is create-then-delete, not a per-field PATCH, whenever the commitment's
+    *shape* might change** (a plain block becoming a pair, a pair becoming a plain block,
+    or a pair's times shifting enough that both halves need recomputing) —
+    `useReplaceScheduleBlocks`. Reconciling four different before/after shape combinations
+    field-by-field would be real complexity; recomputing "what block(s) do the new values
+    need" and diffing against "what block(s) existed before" handles all four uniformly.
+    **Create-first, not delete-first**: if the new block(s) fail to create, the old ones are
+    still there and nothing is lost; if only some of the new ones succeed, those get rolled
+    back rather than leaving a mix of old and partial-new data — worst case, the edit
+    silently doesn't take effect, never something worse than before. A plain block staying a
+    plain block still uses a simple PATCH (`useUpdateScheduleBlock`, unchanged) — no reason
+    to pay the delete+recreate cost for the common case that never needed it.
+  - **Display**: a pair's two halves are always on different days by construction, so within
+    a single day's row list, a "tail" half (starts at minute 0, shares a `pairId`) is hidden
+    — it's represented by its "head" half's row on the *previous* day, shown with the true
+    combined time range and a small "overnight" tag. The **daily timeline bar** and **each
+    day's committed-minutes total** still use the raw, unmerged per-day blocks (including
+    tails) — those are about *this specific day's* actual occupied minutes, which
+    genuinely includes the early-morning tail, unlike the row list which is about *how many
+    distinct commitments* exist. An orphaned head or tail (partner missing, shouldn't happen
+    but shouldn't become invisible if it somehow does) falls back to rendering as its own
+    plain row rather than disappearing.
+  - **Weekly "N commitments" stat** now counts `new Set(blocks.map(b => b.pairId ?? b.id)).size`
+    — a pair collapses to one entry, an unpaired block counts on its own, one line handles
+    both cases.
 - **Today (`app/(app)/today/`)** is where two conventions written earlier in this document
   finally get used for the first time, rather than new ones being invented: `.animate-pulse-glow`
   (earmarked back when it was added — "the handful of elements that should feel alive at

@@ -33,6 +33,12 @@ export async function createScheduleBlock(userId: string, input: CreateScheduleB
       startTime: input.startTime,
       endTime: input.endTime,
       label: input.label,
+      // Client-generated grouping tag for an overnight-spanning commitment's
+      // two halves (see schema.prisma) — explicitly null when not provided
+      // (exactOptionalPropertyTypes means `undefined` isn't interchangeable
+      // with "omit the key" here — Prisma's generated type wants `string |
+      // null` for this nullable column).
+      pairId: input.pairId ?? null,
     },
   });
 }

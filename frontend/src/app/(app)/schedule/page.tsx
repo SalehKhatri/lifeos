@@ -26,7 +26,10 @@ export default function SchedulePage() {
   // Lazy initializer, not an effect — see app/(app)/tasks/page.tsx's
   // identical pattern for why (react-hooks/set-state-in-effect).
   const [sheetOpen, setSheetOpen] = useState(() => Boolean(searchParams.get("new")));
-  const [editingBlock, setEditingBlock] = useState<ScheduleBlock | null>(null);
+  // Whichever commitment is being edited, as its full block set — 1 for an
+  // ordinary block, 2 for an overnight pair. ScheduleList has already
+  // resolved the pair (if any) before calling onEdit.
+  const [editingBlocks, setEditingBlocks] = useState<ScheduleBlock[]>([]);
 
   useEffect(() => {
     if (searchParams.get("new")) {
@@ -36,12 +39,12 @@ export default function SchedulePage() {
   }, []);
 
   function openCreate() {
-    setEditingBlock(null);
+    setEditingBlocks([]);
     setSheetOpen(true);
   }
 
-  function openEdit(block: ScheduleBlock) {
-    setEditingBlock(block);
+  function openEdit(blocks: ScheduleBlock[]) {
+    setEditingBlocks(blocks);
     setSheetOpen(true);
   }
 
@@ -67,6 +70,13 @@ export default function SchedulePage() {
     () => (blocks ?? []).reduce((sum, b) => sum + (b.endTime - b.startTime), 0),
     [blocks],
   );
+  // Distinct commitments, not raw block rows — an overnight pair is 2 rows
+  // in the database but one thing to the person counting their week, same
+  // as everywhere else pairId collapses a pair back into "one commitment."
+  const commitmentCount = useMemo(
+    () => new Set((blocks ?? []).map((b) => b.pairId ?? b.id)).size,
+    [blocks],
+  );
 
   return (
     <div className="space-y-6">
@@ -82,7 +92,7 @@ export default function SchedulePage() {
       {!isLoading && !isError && (
         <div className="flex items-center gap-4 font-mono text-xs text-muted-foreground">
           <span>
-            {(blocks ?? []).length} commitment{(blocks ?? []).length === 1 ? "" : "s"}
+            {commitmentCount} commitment{commitmentCount === 1 ? "" : "s"}
           </span>
           <span>{formatDuration(totalMinutes)} committed this week</span>
         </div>
@@ -100,7 +110,7 @@ export default function SchedulePage() {
         <ScheduleList blocks={blocks ?? []} onEdit={openEdit} />
       )}
 
-      <ScheduleFormSheet open={sheetOpen} onOpenChange={setSheetOpen} block={editingBlock} />
+      <ScheduleFormSheet open={sheetOpen} onOpenChange={setSheetOpen} blocks={editingBlocks} />
     </div>
   );
 }

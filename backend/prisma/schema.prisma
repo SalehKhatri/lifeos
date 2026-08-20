@@ -137,12 +137,21 @@ model ScheduleBlock {
 
   dayOfWeek Int // 0 = Sunday ... 6 = Saturday
   startTime Int // minutes since midnight (0-1439)
-  endTime   Int // minutes since midnight (0-1439)
+  endTime   Int // minutes since midnight (0-1440; 1440 = exactly midnight)
   label     String
+
+  // Opaque grouping tag (client-generated, not a real FK) linking the two
+  // rows a single overnight commitment gets split into — e.g. "Mon 9pm-2am"
+  // becomes one row ending at 1440 (Monday) and one starting at 0 (Tuesday),
+  // both sharing this value. Null for every ordinary same-day block — the
+  // vast majority. Not a foreign key/relation on purpose: it's a plain
+  // grouping label, not a referential link one row "points to."
+  pairId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+  @@index([userId, pairId])
   @@map("schedule_blocks")
 }

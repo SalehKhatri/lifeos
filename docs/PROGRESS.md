@@ -60,7 +60,7 @@ Update this as you go. Keep notes short — one line per item is enough.
 
 | Item                      | Status | Notes |
 | ------------------------- | ------ | ----- |
-| Create schedule block     | ✅     | `startTime < endTime` validated |
+| Create schedule block     | ✅     | `startTime < endTime` validated; `endTime` allows up to 1440 (exactly midnight), `startTime` capped at 1439 — see Decisions Log; optional client-generated `pairId` links an overnight commitment's two halves |
 | Edit schedule block       | ✅     | `PATCH /schedule/:id` — added beyond original locked API surface, see Decisions Log; time-order re-validated against merged (existing + new) values |
 | Delete schedule block     | ✅     |       |
 | List/filter schedule      | ✅     | `GET /schedule?dayOfWeek=`, ordered by day then start time |
@@ -740,3 +740,24 @@ Short record of decisions made and why, so you don't relitigate them later.
   day would be meaningless). Frontend split updated to use `endTime: MINUTES_PER_DAY`
   (1440). Verified numerically before shipping: 9pm-2am now splits into exactly 3h00m +
   2h00m = 5h, matching the entered range (previously 2h59m + 2h00m = 4h59m).
+- 2026-08-19 — User-reported friction: managing an overnight commitment's two halves
+  manually (edit both if the time changes, delete both to remove the whole shift). Presented
+  four options (leave as-is, smarter delete only, frontend-only heuristic merge, proper
+  backend link); user chose the backend link — most robust, avoids the heuristic-merge
+  risk of two genuinely unrelated commitments matching the same-label/adjacent-day/midnight
+  pattern by coincidence. Added `ScheduleBlock.pairId` (nullable, indexed, client-generated
+  via `crypto.randomUUID()` — an opaque grouping tag, not a real FK/relation) via a single
+  additive migration, no backfill needed. `createScheduleBlockSchema` accepts an optional
+  `pairId` passthrough; `updateScheduleBlockSchema` deliberately does not, since editing a
+  pair now always goes through delete+recreate (`useReplaceScheduleBlocks`), never a direct
+  PATCH on a paired row. Editing reconciles by shape: a plain block staying a plain block
+  still uses the existing simple PATCH (`useUpdateScheduleBlock`); anything where either
+  side of the edit is a pair recomputes the needed block(s) and replaces the old one(s) —
+  create-first (not delete-first) so a failed create never loses the original data, with a
+  rollback of any partially-succeeded new blocks rather than leaving mixed old/new state.
+  Schedule's row list now hides a pair's "tail" half (represented by its "head" half's row
+  on the previous day, shown with the true combined range + an "overnight" tag) while the
+  daily timeline and each day's committed-minutes total still use the raw per-day blocks
+  (that day's actual occupied minutes genuinely include the tail). Weekly "N commitments"
+  now counts `pairId ?? id` distinctly, so a pair reads as one commitment, not two. Full
+  reasoning in `frontend/DESIGN.md`.

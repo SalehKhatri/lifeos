@@ -10,6 +10,10 @@ export interface ScheduleBlockInput {
   startTime: number; // minutes since midnight
   endTime: number;
   label: string;
+  // Set (via crypto.randomUUID()) only when this is one half of an
+  // overnight-spanning commitment split into two rows — see
+  // schedule-form-sheet.tsx. Omitted for every ordinary same-day block.
+  pairId?: string;
 }
 
 // Every field optional on update (backend still requires at least one),
