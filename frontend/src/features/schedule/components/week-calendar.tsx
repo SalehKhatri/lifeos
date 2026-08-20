@@ -48,9 +48,9 @@ const DRAG_SNAP_MINUTES = 15;
 // length one.
 const MIN_DRAG_MINUTES = 15;
 
-// Pure and module-level (not a component closure) so the mount-long
-// mousemove/mouseup listeners below can call it without becoming a
-// react-hooks/exhaustive-deps dependency.
+// Both pure and module-level (not component closures) so the mount-long
+// mousemove/mouseup listeners below can call them without becoming
+// react-hooks/exhaustive-deps dependencies.
 function minuteFromClientY(el: HTMLDivElement, clientY: number): number {
   const rect = el.getBoundingClientRect();
   const ratio = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
@@ -65,10 +65,90 @@ function minuteFromClientY(el: HTMLDivElement, clientY: number): number {
   );
 }
 
+// Which day column (by index, matching dayOfWeek 0-6 left to right) a
+// clientX currently sits over — null if it's outside all of them (over the
+// hour-label gutter, or off either edge of the grid).
+function dayIndexFromClientX(dayEls: (HTMLDivElement | null)[], clientX: number): number | null {
+  for (let d = 0; d < dayEls.length; d++) {
+    const el = dayEls[d];
+    if (!el) continue;
+    const rect = el.getBoundingClientRect();
+    if (clientX >= rect.left && clientX < rect.right) return d;
+  }
+  return null;
+}
+
 interface DragState {
-  dayOfWeek: number;
+  startDay: number;
   startMinute: number;
+  // Where the pointer currently is — same day as startDay for an ordinary
+  // same-day drag, or the adjacent column to either side for an overnight
+  // one (see onCreateSlot's doc comment).
+  currentDay: number;
   currentMinute: number;
+}
+
+interface PreviewSegment {
+  dayOfWeek: number;
+  start: number;
+  end: number;
+  // Whether this segment touches the midnight edge it's cut off at — used
+  // to square that corner off, same as a real overnight pair's rendering.
+  touchesTop: boolean;
+  touchesBottom: boolean;
+}
+
+// One segment for an ordinary same-day drag, two for one that's crossed
+// into an adjacent day — mirrors exactly how a saved overnight pair
+// renders (two ordinary segments meeting at midnight, no merge logic
+// needed), so the live preview and the real thing look like the same
+// system.
+function previewSegments(drag: DragState): PreviewSegment[] {
+  if (drag.currentDay === drag.startDay) {
+    return [
+      {
+        dayOfWeek: drag.startDay,
+        start: Math.min(drag.startMinute, drag.currentMinute),
+        end: Math.max(drag.startMinute, drag.currentMinute),
+        touchesTop: false,
+        touchesBottom: false,
+      },
+    ];
+  }
+  if (drag.currentDay > drag.startDay) {
+    return [
+      {
+        dayOfWeek: drag.startDay,
+        start: drag.startMinute,
+        end: MINUTES_PER_DAY,
+        touchesTop: false,
+        touchesBottom: true,
+      },
+      {
+        dayOfWeek: drag.currentDay,
+        start: 0,
+        end: drag.currentMinute,
+        touchesTop: true,
+        touchesBottom: false,
+      },
+    ];
+  }
+  return [
+    {
+      dayOfWeek: drag.currentDay,
+      start: drag.currentMinute,
+      end: MINUTES_PER_DAY,
+      touchesTop: false,
+      touchesBottom: true,
+    },
+    {
+      dayOfWeek: drag.startDay,
+      start: 0,
+      end: drag.startMinute,
+      touchesTop: true,
+      touchesBottom: false,
+    },
+  ];
 }
 
 interface WeekCalendarProps {
@@ -76,15 +156,16 @@ interface WeekCalendarProps {
   // The commitment's full block set — 1 for an ordinary block, 2 for an
   // overnight pair (resolved via pairId before calling this).
   onEdit: (blocks: ScheduleBlock[]) => void;
-  // Fired on click or click-drag over empty grid space. startTime/endTime
-  // are always in that day's own local terms — a drag can never spatially
-  // cross the midnight boundary (that's a different column), so
-  // minuteFromClientY keeps both endpoints within a single day. The one
-  // case that *does* need to represent "runs into tomorrow" is a plain
-  // click late enough that the default 1h block would cross midnight —
-  // handled by wrapping endTime below startTime, exactly like typing an
-  // earlier end time does in the manual form, so the caller can feed this
-  // straight into the same create flow without any special-casing.
+  // Fired on click or click-drag over empty grid space. Always describes a
+  // same-day-terms range: an ordinary drag never leaves its starting day,
+  // and an overnight one is expressed the same way the manual form and
+  // click-defaulting-past-midnight already are — endTime wrapped below
+  // startTime — so the caller can feed this straight into the same create
+  // flow without any special-casing. dayOfWeek is always the *earlier* of
+  // the two days touched: dragging right (today's evening into tomorrow's
+  // early morning) keeps it as the day the drag started on; dragging left
+  // (this morning's early hours back into last night) reports the
+  // *previous* day instead, since that's the commitment's real start.
   onCreateSlot: (dayOfWeek: number, startTime: number, endTime: number) => void;
 }
 
@@ -127,7 +208,12 @@ export function WeekCalendar({ blocks, onEdit, onCreateSlot }: WeekCalendarProps
     const el = dayRefs.current[dayOfWeek];
     if (!el) return;
     const minute = minuteFromClientY(el, e.clientY);
-    const next: DragState = { dayOfWeek, startMinute: minute, currentMinute: minute };
+    const next: DragState = {
+      startDay: dayOfWeek,
+      startMinute: minute,
+      currentDay: dayOfWeek,
+      currentMinute: minute,
+    };
     dragRef.current = next;
     setDrag(next);
   }
@@ -138,30 +224,55 @@ export function WeekCalendar({ blocks, onEdit, onCreateSlot }: WeekCalendarProps
   // dragRef (a ref) rather than the `drag` state value itself, so this
   // effect never needs to re-subscribe as the drag progresses.
   useEffect(() => {
+    // Only the column immediately to either side of where the drag
+    // started is reachable — the data model can only ever represent a
+    // commitment as two blocks (this day's evening half + one adjacent
+    // day's early-morning half), not three or more, so there's nowhere
+    // useful for a third day to go.
+    function resolveDay(startDay: number, clientX: number): number {
+      const raw = dayIndexFromClientX(dayRefs.current, clientX);
+      if (raw === null) return dragRef.current?.currentDay ?? startDay;
+      return Math.max(startDay - 1, Math.min(startDay + 1, raw));
+    }
     function handleMove(e: MouseEvent) {
       const current = dragRef.current;
       if (!current) return;
-      const el = dayRefs.current[current.dayOfWeek];
+      const currentDay = resolveDay(current.startDay, e.clientX);
+      const el = dayRefs.current[currentDay];
       if (!el) return;
-      const minute = minuteFromClientY(el, e.clientY);
-      const next = { ...current, currentMinute: minute };
+      const currentMinute = minuteFromClientY(el, e.clientY);
+      const next = { ...current, currentDay, currentMinute };
       dragRef.current = next;
       setDrag(next);
     }
     function handleUp(e: MouseEvent) {
       const current = dragRef.current;
       if (!current) return;
-      const el = dayRefs.current[current.dayOfWeek];
-      const minute = el ? minuteFromClientY(el, e.clientY) : current.currentMinute;
-      const start = Math.min(current.startMinute, minute);
-      const span = Math.max(current.startMinute, minute) - start;
-      // A plain click (no real drag) defaults to a 1h block. Wrapping via
-      // modulo covers clicking late enough that the default hour would run
-      // past midnight — see onCreateSlot's doc comment.
-      const end = span < MIN_DRAG_MINUTES ? (start + 60) % MINUTES_PER_DAY : start + span;
+      const currentDay = resolveDay(current.startDay, e.clientX);
+      const el = dayRefs.current[currentDay];
+      const currentMinute = el ? minuteFromClientY(el, e.clientY) : current.currentMinute;
       dragRef.current = null;
       setDrag(null);
-      onCreateSlot(current.dayOfWeek, start, end);
+
+      if (currentDay === current.startDay) {
+        const start = Math.min(current.startMinute, currentMinute);
+        const span = Math.max(current.startMinute, currentMinute) - start;
+        // A plain click (no real drag) defaults to a 1h block. Wrapping via
+        // modulo covers clicking late enough that the default hour would
+        // run past midnight — see onCreateSlot's doc comment.
+        const end = span < MIN_DRAG_MINUTES ? (start + 60) % MINUTES_PER_DAY : start + span;
+        onCreateSlot(current.startDay, start, end);
+      } else if (currentDay > current.startDay) {
+        // Dragged right, into tomorrow: today's startMinute onward, ending
+        // at tomorrow's currentMinute — exactly the wrapped shape
+        // onCreateSlot's callers already expect.
+        onCreateSlot(current.startDay, current.startMinute, currentMinute);
+      } else {
+        // Dragged left, into yesterday: the *real* start is yesterday's
+        // currentMinute, ending at today's original startMinute — the drag
+        // started on the tail side of the commitment, not the head.
+        onCreateSlot(currentDay, currentMinute, current.startMinute);
+      }
     }
     window.addEventListener("mousemove", handleMove);
     window.addEventListener("mouseup", handleUp);
@@ -229,13 +340,9 @@ export function WeekCalendar({ blocks, onEdit, onCreateSlot }: WeekCalendarProps
             const overlapping = findOverlappingIds(dayBlocks);
             const laidOut = layoutDayBlocks(dayBlocks);
             const isToday = dayOfWeek === today;
-            const preview =
-              drag && drag.dayOfWeek === dayOfWeek
-                ? {
-                    start: Math.min(drag.startMinute, drag.currentMinute),
-                    end: Math.max(drag.startMinute, drag.currentMinute),
-                  }
-                : null;
+            const previews = drag
+              ? previewSegments(drag).filter((s) => s.dayOfWeek === dayOfWeek)
+              : [];
 
             return (
               <div
@@ -273,24 +380,43 @@ export function WeekCalendar({ blocks, onEdit, onCreateSlot }: WeekCalendarProps
                     (deliberately distinct from a real block's solid
                     bg-muted fill) with its own time range printed above it,
                     so "where this new commitment will land" is exactly as
-                    legible while dragging as an existing block is at rest. */}
-                {preview && (
+                    legible while dragging as an existing block is at rest.
+                    Two segments (one per column) once the drag crosses into
+                    an adjacent day — see previewSegments — with whichever
+                    corner touches midnight squared off, same as a real
+                    overnight pair's rendering below. */}
+                {previews.map((seg, i) => (
                   <div
+                    key={i}
                     aria-hidden
-                    className="pointer-events-none absolute inset-x-0.5 z-20 rounded-md border-2 border-dashed border-accent-cyan bg-accent-cyan/10"
+                    className={cn(
+                      "pointer-events-none absolute inset-x-0.5 z-20 rounded-md border-2 border-dashed border-accent-cyan bg-accent-cyan/10",
+                      seg.touchesTop && "rounded-t-none",
+                      seg.touchesBottom && "rounded-b-none",
+                    )}
                     style={{
-                      top: (preview.start / MINUTES_PER_DAY) * GRID_HEIGHT,
+                      top: (seg.start / MINUTES_PER_DAY) * GRID_HEIGHT,
                       height: Math.max(
-                        ((preview.end - preview.start) / MINUTES_PER_DAY) * GRID_HEIGHT,
+                        ((seg.end - seg.start) / MINUTES_PER_DAY) * GRID_HEIGHT,
                         4,
                       ),
                     }}
                   >
-                    <span className="absolute -top-4 left-0 whitespace-nowrap font-mono text-[10px] text-accent-cyan">
-                      {formatClockTime(preview.start)} – {formatClockTime(preview.end)}
+                    {/* A segment starting at minute 0 (the tail half of a
+                        drag that's crossed into tomorrow) has no room
+                        above it to float a label without spilling into the
+                        sticky header — puts it just inside the box instead
+                        of hovering above, unlike every other segment. */}
+                    <span
+                      className={cn(
+                        "absolute left-0 whitespace-nowrap font-mono text-[10px] text-accent-cyan",
+                        seg.touchesTop ? "top-0.5 left-1" : "-top-4",
+                      )}
+                    >
+                      {formatClockTime(seg.start)} – {formatClockTime(seg.end)}
                     </span>
                   </div>
-                )}
+                ))}
 
                 {laidOut.map(({ block, lane, laneCount }) => {
                   const partner = findPartner(block, blocks);

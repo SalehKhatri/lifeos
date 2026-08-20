@@ -819,3 +819,14 @@ Short record of decisions made and why, so you don't relitigate them later.
   produced it deliberately; all three affected call sites (`blocksForDay`, `willSpan`,
   `spansMidnight`) now special-case `end === 0` consistently. Full reasoning in
   `frontend/DESIGN.md`.
+- 2026-08-20 — Reworked the grid's next-day create case again per user feedback ("the next day
+  thing ain't working ig, swiping it horizontally to day on left or right would be a better ux
+  decision") — replaced the click-defaults-to-a-wrapped-range heuristic with an actual
+  cross-day drag: drag past a day column's left/right edge into the adjacent column and the
+  vertical position there becomes the end (or start) minute on that day. `currentDay` is
+  clamped to `[startDay - 1, startDay + 1]` since the data model only ever supports a
+  commitment as two blocks. The live preview now renders one segment per touched column
+  (`previewSegments`), squared off at whichever edge meets midnight, mirroring exactly how a
+  saved overnight pair already renders. The plain-click-defaults-to-wrapped-1h-block fallback
+  from the previous pass is kept for same-day clicks (a plain click can't itself cross a
+  column). Full reasoning in `frontend/DESIGN.md`.

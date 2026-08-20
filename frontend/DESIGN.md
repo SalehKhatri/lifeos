@@ -389,25 +389,40 @@ reinventing per component:
     `mousemove`/`mouseup` are a single mount-long `window` subscription (not one per drag) so
     the pointer can leave the day column — or the grid entirely — mid-drag without breaking
     the gesture, gated on a ref rather than the `drag` state value so the listeners never need
-    to resubscribe as the drag progresses. Both endpoints snap to the nearest 15 minutes and
-    stay within that single day (0 to `MINUTES_PER_DAY - 15`) — a drag can't spatially cross
-    midnight since that's a different column. A short press-and-release (< 15 real minutes of
-    movement) is treated as a plain click and defaults to a 1h block. A live dashed-outline
-    preview (deliberately distinct from a real block's solid fill) tracks the drag with its
-    own time-range label, so "where this lands" is exactly as legible mid-drag as an existing
-    block is at rest.
-    - **The next-day case**: clicking late enough that the default 1h block would cross
-      midnight wraps the end time below the start time (`(start + 60) % MINUTES_PER_DAY`) —
-      exactly the same shape the manual form already treats as "spans midnight," so it flows
-      into the existing auto-split/pairing logic with no special-casing needed at the call
-      site. Found and fixed in the same pass: an end time of exactly `"00:00"` was being
-      treated as a genuine 1-minute-into-tomorrow span by `blocksForDay`, `willSpan`, and the
+    to resubscribe as the drag progresses. Both endpoints snap to the nearest 15 minutes. A
+    short press-and-release (< 15 real minutes of movement) is treated as a plain click and
+    defaults to a 1h block. A live dashed-outline preview (deliberately distinct from a real
+    block's solid fill) tracks the drag with its own time-range label, so "where this lands"
+    is exactly as legible mid-drag as an existing block is at rest.
+    - **The next-day case, v2 — drag horizontally into the adjacent day's column.** First cut
+      of this only let a plain click default to a wrapped range when a 1h block would cross
+      midnight; user feedback ("swiping it horizontally to day on left or right would be a
+      better ux decision") replaced that with an actual cross-day drag as the primary
+      mechanism. `dayIndexFromClientX` (module-level, pure) finds which column the pointer
+      currently sits over from its `clientX`; the drag's `currentDay` is clamped to
+      `[startDay - 1, startDay + 1]` since the data model can only ever represent a
+      commitment as two blocks (today's evening half + one adjacent day's early-morning
+      half), never three or more. On release: same day → the ordinary single-block range (or
+      the wrapped 1h-default fallback for a plain click, unchanged from v1, since a plain
+      click can't itself cross a column). Dragged **right** (into tomorrow) →
+      `onCreateSlot(startDay, startMinute, currentMinute)` — already the exact wrapped shape
+      the form treats as spanning, no different from typing an earlier end time. Dragged
+      **left** (into yesterday, i.e. the drag started on what turns out to be the *tail* side
+      of the shift) → `onCreateSlot(currentDay, currentMinute, startMinute)`, reporting the
+      *earlier* day and its minute as the real start. The live preview mirrors this exactly —
+      `previewSegments` renders one segment per touched column (squared off wherever it meets
+      midnight), the same shape a saved overnight pair already renders in, so the preview and
+      the real thing read as the same system rather than two different visual languages.
+      Reachable rightward or leftward from either half; not reachable across the Saturday/
+      Sunday week boundary, since those columns aren't spatially adjacent in a single-week
+      grid — a fine limitation for a personal schedule.
+    - **Found and fixed in the v1 pass**: an end time of exactly `"00:00"` was being treated
+      as a genuine 1-minute-into-tomorrow span by `blocksForDay`, `willSpan`, and the
       `spansMidnight` hint alike — which created a real block plus a zero-length tail
-      (`startTime === endTime === 0` on the next day), reachable this way whenever a click
-      near 11pm defaults to a 1h block that lands exactly on midnight. `"00:00"` actually
-      means "ends precisely at midnight," already fully representable as a single same-day
-      block ending at `MINUTES_PER_DAY` — all three call sites now special-case `end === 0`
-      to agree with that.
+      (`startTime === endTime === 0` on the next day), reachable whenever a click near 11pm
+      defaults to a 1h block that lands exactly on midnight. `"00:00"` actually means "ends
+      precisely at midnight," already fully representable as a single same-day block ending
+      at `MINUTES_PER_DAY` — all three call sites special-case `end === 0` to agree with that.
     - **`ScheduleFormSheet` gained an `initialSlot` prop** (`{dayOfWeek, startTime, endTime}`)
       — prefills create mode from a grid click/drag, ignored once `blocks` is non-empty (edit
       mode always wins). The page clears it whenever create is opened any other way (the
