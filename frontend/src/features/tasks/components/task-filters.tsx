@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCategories } from "@/features/categories/hooks";
+import { useProjects } from "@/features/projects/hooks";
 import type { TaskFilters as TaskFiltersValue } from "@/features/tasks/api";
 
 const ALL = "__all__";
@@ -40,6 +41,7 @@ interface TaskFiltersProps {
 
 export function TaskFilters({ filters, onChange }: TaskFiltersProps) {
   const { data: categories } = useCategories();
+  const { data: projects } = useProjects();
 
   // `items`' labels can be any ReactNode, so the trigger can show the same
   // color dot as the popup list below, not just a plain name.
@@ -57,6 +59,11 @@ export function TaskFilters({ filters, onChange }: TaskFiltersProps) {
         </span>,
       ]),
     ),
+  };
+
+  const projectItems: Record<string, ReactNode> = {
+    [ALL]: "All projects",
+    ...Object.fromEntries((projects ?? []).map((p) => [p.id, p.name])),
   };
 
   return (
@@ -126,6 +133,26 @@ export function TaskFilters({ filters, onChange }: TaskFiltersProps) {
                 />
                 {category.name}
               </span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        items={projectItems}
+        value={filters.projectId ?? ALL}
+        onValueChange={(v) =>
+          onChange({ ...filters, projectId: v && v !== ALL ? v : undefined })
+        }
+      >
+        <SelectTrigger className="w-40">
+          <SelectValue placeholder="Project" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL}>All projects</SelectItem>
+          {projects?.map((project) => (
+            <SelectItem key={project.id} value={project.id}>
+              {project.name}
             </SelectItem>
           ))}
         </SelectContent>

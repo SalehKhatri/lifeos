@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import Link from "next/link";
 import { Archive, Check, MoreVertical, Pause, Pencil, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -225,7 +226,19 @@ function ProjectCard({ project, onEdit, onDelete, onStatusChange }: ProjectCardP
             Progress
           </span>
           <span className="font-mono text-xs text-muted-foreground">
-            {project.completedTaskCount}/{project.taskCount} · {project.progress}%
+            {/* Real <Link>, not a click handler on a <span> — worth being a
+                proper anchor (right-click, open in new tab), per
+                DESIGN.md's convention. The only way to see which tasks make
+                up this project; there's no /projects/[id] detail page (see
+                DESIGN.md — a lean bridge into the existing Tasks page
+                instead of a second task-list UI). */}
+            <Link
+              href={`/tasks?projectId=${project.id}`}
+              className="underline-offset-2 hover:text-accent-cyan hover:underline"
+            >
+              {project.completedTaskCount}/{project.taskCount} tasks
+            </Link>{" "}
+            · {project.progress}%
           </span>
         </div>
         <Progress value={project.progress} />

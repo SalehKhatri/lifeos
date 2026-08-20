@@ -37,7 +37,13 @@ function isTypingTarget(target: EventTarget | null) {
 export default function TasksPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [filters, setFilters] = useState<TaskFiltersValue>({});
+  // Lazy initializer, same reasoning as `sheetOpen` below — a project card's
+  // "view tasks" link lands here as `?projectId=X`, which should seed the
+  // filter, not just sit unread in the URL.
+  const [filters, setFilters] = useState<TaskFiltersValue>(() => {
+    const projectId = searchParams.get("projectId");
+    return projectId ? { projectId } : {};
+  });
   const { data: tasks, isLoading } = useTasks(filters);
   // Lazy initializer, not an effect — deriving state from the URL at mount
   // is exactly what useState's initializer is for; setting it from an

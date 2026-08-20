@@ -545,3 +545,12 @@ Short record of decisions made and why, so you don't relitigate them later.
   Project select (`Task.projectId` was already wired up on the backend since 2026-08-16, the
   frontend just had nothing to list from until now). Command palette's `?new=1` bridge
   pattern (from Tasks) replicated for `/projects` and a "New Project" entry added.
+- 2026-08-19 — User question ("does it make sense to show project-wise tasks?") surfaced a
+  real gap: `Task.projectId` was filterable on the backend and even in the frontend's
+  `TaskFilters` type, but no UI anywhere exposed it — no way to see "tasks in Project X".
+  Chose a lean bridge over a `/projects/[id]` detail page (which would duplicate Tasks'
+  search/sort/urgency/status-control in a second UI): added a Project filter to
+  `TaskFilters` (same pattern as Category), and made each project card's task-count a real
+  `<Link>` to `/tasks?projectId=X`, read on the Tasks page via the same lazy-initializer
+  pattern as the `?new=1` bridge — except this one stays in the URL afterwards (a filter is
+  worth bookmarking/sharing/surviving a refresh, unlike a one-shot "open the sheet" signal).

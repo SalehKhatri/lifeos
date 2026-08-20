@@ -277,6 +277,17 @@ reinventing per component:
   task list you scroll and act on repeatedly. Applied the task-card lesson *proactively*
   here instead of waiting to be told: one explicit status `Select` per card from the start,
   no checkbox/dot split to later regret.
+- **"View a project's tasks" is a lean bridge into the Tasks page, not a
+  `/projects/[id]` detail page.** User question: does it make sense to see project-wise
+  tasks? Yes, and it was a real gap — `Task.projectId` was filterable on the backend and
+  even in the frontend's `TaskFilters` type, but nothing in either page's UI exposed it.
+  Rather than build a second task-list UI inside a project detail page (duplicating search/
+  sort/urgency/status-control that Tasks already has), added a Project filter to `TaskFilters`
+  (same pattern as Category) and made each project card's task-count a real `<Link>` to
+  `/tasks?projectId=X`, read via `useState`'s lazy initializer on the Tasks page (same
+  pattern as the `?new=1` bridge). Deliberately *not* stripped from the URL afterwards,
+  unlike `?new=1` — a filter is worth keeping bookmarkable/shareable/refresh-safe, unlike a
+  one-shot "open this sheet" signal.
 
 ## Radius & type
 
