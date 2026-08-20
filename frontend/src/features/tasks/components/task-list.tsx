@@ -181,8 +181,9 @@ function TaskCard({ task, onEdit, onDelete, onStatusChange }: TaskCardProps) {
   return (
     <div
       className={cn(
-        "group/task flex items-start gap-2 rounded-lg border-l-2 border-l-transparent bg-card px-3 py-2.5 text-sm text-card-foreground ring-1 ring-foreground/10 transition-colors hover:ring-foreground/20",
+        "group/task flex items-start gap-2 rounded-lg border-l-2 border-l-transparent bg-card px-3 py-2.5 text-sm text-card-foreground ring-1 ring-foreground/10 transition-[box-shadow,ring-color] duration-150 hover:shadow-glow-cyan hover:ring-accent-cyan/30",
         priorityBorder,
+        task.priority === "URGENT" && !done && "shadow-glow-magenta",
       )}
     >
       <div className={cn("min-w-0 flex-1 space-y-1.5", done && "opacity-70")}>
@@ -200,8 +201,12 @@ function TaskCard({ task, onEdit, onDelete, onStatusChange }: TaskCardProps) {
               size="sm"
               aria-label="Change status"
               className={cn(
-                "h-6.5 shrink-0 gap-1 px-2 text-xs",
-                task.status === "IN_PROGRESS" && "border-accent-cyan/40 text-accent-cyan",
+                // A faint cyan border at rest — reads as a system control,
+                // not a generic bootstrap-y dropdown — intensifying to a
+                // full cyan tint when actually in progress.
+                "h-6.5 shrink-0 gap-1 border-accent-cyan/20 px-2 text-xs",
+                task.status === "IN_PROGRESS" &&
+                  "border-accent-cyan/50 bg-accent-cyan/5 text-accent-cyan",
               )}
             >
               <SelectValue />
@@ -225,7 +230,18 @@ function TaskCard({ task, onEdit, onDelete, onStatusChange }: TaskCardProps) {
         </div>
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-          <span className={cn("font-medium", !done && PRIORITY_TEXT[task.priority])}>
+          {/* font-heading + tracked uppercase — the app's "technical/HUD
+              voice" tier (see DESIGN.md's type system), not a plain label.
+              Dropped in an earlier pass while de-cluttering the card;
+              restoring it doesn't add clutter (no new element, just a font
+              choice) but does restore some of the identity that was lost
+              along with the corner-tick/cursor-glow decoration. */}
+          <span
+            className={cn(
+              "font-heading font-semibold tracking-wider uppercase",
+              !done && PRIORITY_TEXT[task.priority],
+            )}
+          >
             {PRIORITY_LABEL[task.priority]}
           </span>
 

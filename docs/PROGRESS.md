@@ -520,3 +520,12 @@ Short record of decisions made and why, so you don't relitigate them later.
   hierarchy (status+title+menu, then objective-facts-first metadata line). Full reasoning
   in `frontend/DESIGN.md`, including the standing lesson: every visible element should carry
   real information or be an unambiguous control, never decoration for its own sake.
+- 2026-08-19 — Immediate follow-up feedback on the above: "lost the jarvis vibe." Root cause
+  wasn't missing the removed decoration (corner ticks/cursor-glow stayed removed, correctly)
+  — it was that the priority label had also lost its `font-heading` tracked-uppercase
+  treatment (the app's HUD-voice typography tier) down to a plain span during the rewrite.
+  Restored it (free — a font choice, no new element). Added a cheap CSS-only hover glow on
+  the whole card (no pointermove/JS needed for "reactive"), a permanent faint cyan border on
+  the status control at rest so it reads as a system widget rather than a generic dropdown,
+  and a genuine glow specifically on `URGENT` tasks (the one tier rare enough to earn it,
+  per the existing "glow is reserved" rule).

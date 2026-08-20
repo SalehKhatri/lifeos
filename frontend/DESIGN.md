@@ -194,6 +194,21 @@ reinventing per component:
     per-category color can't be a static Tailwind class); project uses a fixed accent-cyan
     tint + `FolderKanban` icon, since it's structural (one fixed meaning) rather than
     user-colored.
+  - **De-cluttering isn't the same as de-personalizing** — immediate next-round feedback was
+    "lost the jarvis vibe." The fix wasn't reintroducing the removed decoration; it was
+    noticing that **typography identity had been flattened along with it**: the priority
+    label had lost its `font-heading` tracked-uppercase treatment (the app's "technical/HUD
+    voice" tier, see the type system below) down to a plain `font-medium` span during the
+    rewrite — restored, since that's free (a font choice, no new element) and was doing real
+    identity work. Also added: a cheap CSS-only `hover:` glow on the whole card
+    (`hover:shadow-glow-cyan hover:ring-accent-cyan/30`, no pointermove/JS — "reactive," per
+    the standing microinteraction principle, doesn't require cursor-tracking math every
+    time), a permanent faint cyan border on the status control at rest (reads as a system
+    widget, not a generic dropdown, intensifying to a full tint when actually in progress),
+    and a genuine `shadow-glow-magenta` on `URGENT` tasks specifically — the one priority
+    tier rare/important enough to earn an always-on glow, matching the glow convention's own
+    "reserved for the one or two things that should draw the eye" rule rather than
+    reintroducing it everywhere.
 - **`Badge`'s radius fixed from shadcn's default pill (`rounded-4xl`) to `rounded-sm`** — a
   full pill reads as a generic SaaS tag, at odds with the sharper `--radius` token this theme
   already chose specifically for a more precise/HUD feel. `Badge` isn't currently used
