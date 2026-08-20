@@ -299,6 +299,28 @@ reinventing per component:
   `components/form-field.tsx`, not inventing a new label style). A filter bar with only one or
   two axes (Projects' status filter, for now) doesn't need this — reach for it once a third
   axis is about to be added, not preemptively.
+- **Toolbar row bug, fixed 2026-08-19: mismatched control heights read as "ugly."** The
+  Filters `Popover` trigger was `size="sm"` (`h-7`) while the search `Input` and Sort
+  `Select` sat at their default `h-8` — three controls in one `items-center` row at two
+  different heights, which is the kind of thing that "looks off" without being easy to name.
+  Fixed by explicitly setting `h-8` on all three (Input has no size-variant system, unlike
+  `Select`/`Button`, so it's a plain className override there — worth remembering next time a
+  toolbar mixes `Input` with `Select`/`Button`, since only the latter two default to a
+  consistent height across variants). Also fixed: the search box's wrapping `div` had a
+  stray `w-full` fighting its own `max-w-56`, which — inside a `flex flex-wrap` row — made it
+  want to claim the full row width instead of behaving like a fixed-width item alongside its
+  siblings; changed to a plain `w-56 shrink-0`. Added a vertical `Separator` between the
+  Filters trigger and the Sort `Select` to visually group "narrowing the list" from "ordering
+  it" — two different jobs that were previously just floating next to each other with no
+  visual distinction.
+- **Toolbar shortcuts, `/tasks`**: `/` → focus search, `n` → new task, `f` → toggle the
+  Filters popover, `s` → cycle sort order (deadline → priority → newest → deadline...).
+  Visible `kbd` hints sit next to/inside the controls that have room for one (the New Task
+  button, the Filters trigger, the search box's idle-state hint) — Sort's hint sits beside
+  the `Select` rather than inside its trigger, since cramming a badge into an already-tight
+  dropdown trigger would undercut the exact "toolbar looks busy" complaint this pass was
+  fixing. `n` was also added to `/projects` for parity — "master control" is a standing
+  app-wide principle, not something to reintroduce per-page only when asked.
 
 ## Radius & type
 

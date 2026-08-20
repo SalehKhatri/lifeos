@@ -12,6 +12,13 @@ import { useProjects } from "@/features/projects/hooks";
 import type { ProjectFilters as ProjectFiltersValue } from "@/features/projects/api";
 import type { Project } from "@/types";
 
+function isTypingTarget(target: EventTarget | null) {
+  return (
+    target instanceof HTMLElement &&
+    (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
+  );
+}
+
 export default function ProjectsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -39,6 +46,22 @@ export default function ProjectsPage() {
     setSheetOpen(true);
   }
 
+  // "n" opens the create sheet — same page-level shortcut as /tasks, for
+  // parity (frontend/DESIGN.md's "master control" principle applies
+  // app-wide, not just to the page that happened to get it first).
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isTypingTarget(e.target)) return;
+      if (e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        openCreate();
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
@@ -46,6 +69,7 @@ export default function ProjectsPage() {
         <Button onClick={openCreate}>
           <Plus />
           New project
+          <kbd className="ml-1 font-mono text-xs opacity-70">n</kbd>
         </Button>
       </div>
 

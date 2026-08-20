@@ -41,6 +41,8 @@ const PRIORITY_ITEMS = {
 interface TaskFiltersProps {
   filters: TaskFiltersValue;
   onChange: (filters: TaskFiltersValue) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 // Four separate always-visible Selects (status/priority/category/project)
@@ -51,7 +53,7 @@ interface TaskFiltersProps {
 // active?" answerable at a glance without needing them all visible, which
 // is the actual information that mattered, not the four controls
 // themselves.
-export function TaskFilters({ filters, onChange }: TaskFiltersProps) {
+export function TaskFilters({ filters, onChange, open, onOpenChange }: TaskFiltersProps) {
   const { data: categories } = useCategories();
   const { data: projects } = useProjects();
 
@@ -82,19 +84,18 @@ export function TaskFilters({ filters, onChange }: TaskFiltersProps) {
   };
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger
-        render={
-          <Button type="button" variant="outline" size="sm" className="gap-1.5" />
-        }
+        render={<Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" />}
       >
         <Filter className="size-3.5" />
         Filters
         {activeCount > 0 && (
-          <span className="ml-0.5 flex size-4 items-center justify-center rounded-full bg-accent-cyan font-mono text-[10px] font-semibold text-accent-cyan-foreground">
+          <span className="flex size-4 items-center justify-center rounded-full bg-accent-cyan font-mono text-[10px] font-semibold text-accent-cyan-foreground">
             {activeCount}
           </span>
         )}
+        <kbd className="font-mono text-xs opacity-70">f</kbd>
       </PopoverTrigger>
       <PopoverContent className="w-64 space-y-3" align="start">
         <div className="flex items-center justify-between">

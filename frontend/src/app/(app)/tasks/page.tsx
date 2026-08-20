@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TaskFilters } from "@/features/tasks/components/task-filters";
 import { TaskList } from "@/features/tasks/components/task-list";
@@ -54,7 +55,13 @@ export default function TasksPage() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<TaskSort>("deadline");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const SORT_ORDER: TaskSort[] = ["deadline", "priority", "created"];
+  function cycleSort() {
+    setSort((current) => SORT_ORDER[(SORT_ORDER.indexOf(current) + 1) % SORT_ORDER.length]);
+  }
 
   function openCreate() {
     setEditingTask(null);
@@ -86,11 +93,12 @@ export default function TasksPage() {
   }, []);
 
   // Page-level shortcuts — "master control" per docs/ARCHITECTURE.md: "/"
-  // jumps to search, "n" opens the create sheet, from anywhere on the page
-  // that isn't already mid-typing (so a task title can freely contain
-  // either character). Bare keys only, no modifier — this mirrors the
-  // command palette's own reasoning (frontend/DESIGN.md) for not
-  // hijacking a browser/OS-owned combo.
+  // jumps to search, "n" opens the create sheet, "f" toggles the filters
+  // popover, "s" cycles sort order — from anywhere on the page that isn't
+  // already mid-typing (so a task title can freely contain any of these
+  // characters). Bare keys only, no modifier — this mirrors the command
+  // palette's own reasoning (frontend/DESIGN.md) for not hijacking a
+  // browser/OS-owned combo.
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -101,10 +109,17 @@ export default function TasksPage() {
       } else if (e.key.toLowerCase() === "n") {
         e.preventDefault();
         openCreate();
+      } else if (e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setFiltersOpen((o) => !o);
+      } else if (e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        cycleSort();
       }
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Search + sort are client-side over the already-fetched (already
@@ -145,7 +160,7 @@ export default function TasksPage() {
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-56">
+        <div className="relative w-56 shrink-0">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             ref={searchInputRef}
@@ -158,7 +173,7 @@ export default function TasksPage() {
               }
             }}
             placeholder="Search tasks…"
-            className="pr-7 pl-8"
+            className="h-8 pr-7 pl-8"
           />
           {search ? (
             <button
@@ -176,10 +191,17 @@ export default function TasksPage() {
           )}
         </div>
 
-        <TaskFilters filters={filters} onChange={setFilters} />
+        <TaskFilters
+          filters={filters}
+          onChange={setFilters}
+          open={filtersOpen}
+          onOpenChange={setFiltersOpen}
+        />
+
+        <Separator orientation="vertical" className="h-5" />
 
         <Select items={SORT_ITEMS} value={sort} onValueChange={(v) => setSort(v as TaskSort)}>
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="h-8 w-44">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -188,6 +210,7 @@ export default function TasksPage() {
             <SelectItem value="created">Newest first</SelectItem>
           </SelectContent>
         </Select>
+        <kbd className="font-mono text-xs text-muted-foreground opacity-70">s</kbd>
       </div>
 
       {isLoading ? (

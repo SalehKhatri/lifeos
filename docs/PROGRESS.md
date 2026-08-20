@@ -562,3 +562,16 @@ Short record of decisions made and why, so you don't relitigate them later.
   pattern invented). Toolbar footprint drops from 6 always-visible controls (search + 4
   filters + sort) to 3 (search + Filters + sort), with the same information (which filters
   are active) now surfaced via the badge instead of via always-showing every control.
+- 2026-08-19 — User-reported: the toolbar row itself "looked ugly." Root cause: the Filters
+  trigger was `size="sm"` (`h-7`) while the search `Input` and Sort `Select` sat at `h-8` —
+  three controls in one row at two different heights. Fixed by unifying all three at `h-8`
+  (`Input` needed a plain className override, since unlike `Select`/`Button` it has no
+  size-variant system). Also fixed a stray `w-full` on the search box's wrapper fighting its
+  own `max-w-56` (made it try to claim the full row width inside the `flex flex-wrap`
+  container) — changed to `w-56 shrink-0`. Added a vertical `Separator` between Filters and
+  Sort to visually group "narrowing the list" from "ordering it." Also added, per an explicit
+  ask to add shortcuts wherever they'd help: `f` toggles the Filters popover, `s` cycles sort
+  order — both with visible `kbd` hints where there was room for one without re-cluttering
+  the toolbar this pass just decluttered. Added `n` (new project) to `/projects` too, for
+  parity with `/tasks` — "master control" is a standing app-wide principle, not opt-in per
+  page. Full reasoning in `frontend/DESIGN.md`.
