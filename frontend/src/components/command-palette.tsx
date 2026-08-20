@@ -81,6 +81,13 @@ const COMMANDS: PaletteCommand[] = [
     action: (router) => router.push("/tasks?new=1"),
   },
   {
+    label: "New Project",
+    icon: Plus,
+    group: "Actions",
+    // Same ?new=1 bridge as "New Task" — see app/(app)/projects/page.tsx.
+    action: (router) => router.push("/projects?new=1"),
+  },
+  {
     label: "Log out",
     icon: LogOut,
     group: "Session",

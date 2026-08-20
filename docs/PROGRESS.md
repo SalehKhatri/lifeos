@@ -96,7 +96,7 @@ styling anything new.
 | Nav shell + route guard               | ✅     | text-only nav (no icons/avatar — reads "dashboard" otherwise), animated underline indicator via Motion `layoutId`, `useCurrentUser()` *is* the auth state (no separate Context) |
 | Command palette (Cmd/Ctrl+K)          | ✅     | brought into v1 scope deliberately (see `docs/MVP_SPEC.md` §7) — data-driven `COMMANDS` array, digit-key (1-9) instant-select, footer shortcut hints |
 | Tasks + Categories page                | ✅     | Phase 2 — filters, list, create/edit Sheet, delete, inline category manager |
-| Projects page                          | 🔲     | Phase 3 |
+| Projects page                          | ✅     | Phase 3 — status filter, Card grid with progress bars, create/edit Sheet, delete AlertDialog, inline status control |
 | Schedule page                          | 🔲     | Phase 4 |
 | Today page                             | 🔲     | Phase 5 — the priority page per `docs/ARCHITECTURE.md` |
 | Settings page                          | 🔲     | Phase 6 |
@@ -529,3 +529,19 @@ Short record of decisions made and why, so you don't relitigate them later.
   the status control at rest so it reads as a system widget rather than a generic dropdown,
   and a genuine glow specifically on `URGENT` tasks (the one tier rare enough to earn it,
   per the existing "glow is reserved" rule).
+- 2026-08-19 — Phase 3 (Projects) built: `features/projects/` (api+hooks, mirroring Tasks'
+  shape exactly — `useCreateProject`/`useUpdateProject`/`useDeleteProject` with the toast
+  copy convention, `useSetProjectStatus` as the no-toast quick-status-change hook, same
+  reasoning as `useSetTaskStatus`), `/projects` as a responsive Card grid (not a dense list
+  like Tasks — projects are fewer and more "at a glance" than a working task list) with a
+  progress bar (`Progress` — a new shadcn primitive, added via `npx shadcn add progress`,
+  anticipated in the original approved plan) plus a `completed/total · %` readout, one
+  explicit status `Select` per card (`ACTIVE`/`ON_HOLD`/`COMPLETED`/`ARCHIVED` — applying the
+  task-card lesson proactively instead of waiting to be asked: no checkbox/dot split here to
+  begin with), status filter, create/edit Sheet, delete AlertDialog. Confirmed against the
+  backend (`projects.validation.ts`) the exact field contract before building: `name`
+  required, `description`/`status`/`deadline` optional, `deadline` via `z.coerce.date()`
+  (any parseable date/datetime). Also closed the Phase 2 TODO: `TaskFormSheet` now has a
+  Project select (`Task.projectId` was already wired up on the backend since 2026-08-16, the
+  frontend just had nothing to list from until now). Command palette's `?new=1` bridge
+  pattern (from Tasks) replicated for `/projects` and a "New Project" entry added.

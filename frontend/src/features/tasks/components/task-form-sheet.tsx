@@ -25,6 +25,7 @@ import {
 import { FormField } from "@/components/form-field";
 import { CategoryManager } from "@/features/categories/components/category-manager";
 import { useCategories } from "@/features/categories/hooks";
+import { useProjects } from "@/features/projects/hooks";
 import { useCreateTask, useUpdateTask } from "@/features/tasks/hooks";
 import { toDatetimeLocalValue, fromDatetimeLocalValue } from "@/lib/datetime";
 import type { Task } from "@/types";
@@ -42,11 +43,13 @@ const taskFormSchema = z.object({
   estimatedDuration: z.number().int().positive("Must be a positive number of minutes"),
   deadline: z.string().optional(),
   categoryId: z.string().optional(),
+  projectId: z.string().optional(),
 });
 
 type TaskFormValues = z.infer<typeof taskFormSchema>;
 
 const NO_CATEGORY = "__none__";
+const NO_PROJECT = "__none__";
 
 // Base UI's <Select.Value> only resolves a value to its label from items
 // that have actually mounted inside the popup — i.e. after it's been opened
@@ -64,6 +67,7 @@ const EMPTY_VALUES: TaskFormValues = {
   estimatedDuration: 30,
   deadline: "",
   categoryId: NO_CATEGORY,
+  projectId: NO_PROJECT,
 };
 
 interface TaskFormSheetProps {
@@ -72,10 +76,9 @@ interface TaskFormSheetProps {
   task?: Task | null; // omitted/null = create mode
 }
 
-// Project select is intentionally not here yet — Projects (Phase 3) doesn't
-// exist on the frontend yet to list from. Add once that lands.
 export function TaskFormSheet({ open, onOpenChange, task }: TaskFormSheetProps) {
   const { data: categories } = useCategories();
+  const { data: projects } = useProjects();
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const isEditing = Boolean(task);
@@ -83,6 +86,11 @@ export function TaskFormSheet({ open, onOpenChange, task }: TaskFormSheetProps) 
   const categoryItems = {
     [NO_CATEGORY]: "No category",
     ...Object.fromEntries((categories ?? []).map((c) => [c.id, c.name])),
+  };
+
+  const projectItems = {
+    [NO_PROJECT]: "No project",
+    ...Object.fromEntries((projects ?? []).map((p) => [p.id, p.name])),
   };
 
   const {
@@ -110,6 +118,7 @@ export function TaskFormSheet({ open, onOpenChange, task }: TaskFormSheetProps) 
             estimatedDuration: task.estimatedDuration,
             deadline: toDatetimeLocalValue(task.deadline),
             categoryId: task.categoryId ?? NO_CATEGORY,
+            projectId: task.projectId ?? NO_PROJECT,
           }
         : EMPTY_VALUES,
     );
@@ -124,6 +133,7 @@ export function TaskFormSheet({ open, onOpenChange, task }: TaskFormSheetProps) 
       estimatedDuration: values.estimatedDuration,
       deadline: fromDatetimeLocalValue(values.deadline) ?? null,
       categoryId: values.categoryId === NO_CATEGORY ? null : values.categoryId,
+      projectId: values.projectId === NO_PROJECT ? null : values.projectId,
     };
 
     if (isEditing && task) {
@@ -255,6 +265,28 @@ export function TaskFormSheet({ open, onOpenChange, task }: TaskFormSheetProps) 
                 />
                 <CategoryManager />
               </div>
+            </FormField>
+
+            <FormField label="Project" htmlFor="projectId" error={errors.projectId?.message}>
+              <Controller
+                control={control}
+                name="projectId"
+                render={({ field }) => (
+                  <Select items={projectItems} value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger id="projectId" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_PROJECT}>No project</SelectItem>
+                      {projects?.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </FormField>
           </div>
 

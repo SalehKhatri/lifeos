@@ -268,6 +268,15 @@ reinventing per component:
   `CommandItem`, not just this palette) instead of shadcn's default generic muted
   background, and the dialog has a footer hint bar (↑↓ · ↵ · 1-9 · ESC) — command
   palettes should teach their own shortcuts inline, not rely on the user already knowing.
+- **Projects (`features/projects/`)** deliberately reuses every convention above rather than
+  inventing page-specific ones: the toast copy convention, the no-toast status-only mutation
+  pattern (`useSetProjectStatus`, same shape as `useSetTaskStatus`), the `Select.Value` items
+  gotcha, the `?new=1` command-palette bridge. The one real layout difference from Tasks is
+  intentional, not an oversight: a responsive Card **grid**, not a dense list — projects are
+  fewer in number and meant to be scanned "at a glance" (progress, status), unlike a working
+  task list you scroll and act on repeatedly. Applied the task-card lesson *proactively*
+  here instead of waiting to be told: one explicit status `Select` per card from the start,
+  no checkbox/dot split to later regret.
 
 ## Radius & type
 
