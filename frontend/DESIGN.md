@@ -289,6 +289,17 @@ reinventing per component:
   unlike `?new=1` — a filter is worth keeping bookmarkable/shareable/refresh-safe, unlike a
   one-shot "open this sheet" signal.
 
+- **Filter bars collapse behind one "Filters" `Popover` once there are more than ~2-3
+  axes**, rather than showing every `Select` inline — four always-visible filters
+  (status/priority/category/project) on `/tasks`, right after Project became the fourth, was
+  reported as overwhelming. Pattern: a single trigger button with a count badge (visible only
+  when ≥1 filter is active — the "are filters on?" question is real information and stays
+  answerable at a glance, it just doesn't need every control visible to answer it), a
+  "Clear all" action, and the individual `Select`s stacked with labels inside (reusing
+  `components/form-field.tsx`, not inventing a new label style). A filter bar with only one or
+  two axes (Projects' status filter, for now) doesn't need this — reach for it once a third
+  axis is about to be added, not preemptively.
+
 ## Radius & type
 
 - `--radius: 0.375rem` — slightly sharper than shadcn's default `0.625rem`, for a more

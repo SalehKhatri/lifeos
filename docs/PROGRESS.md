@@ -554,3 +554,11 @@ Short record of decisions made and why, so you don't relitigate them later.
   `<Link>` to `/tasks?projectId=X`, read on the Tasks page via the same lazy-initializer
   pattern as the `?new=1` bridge — except this one stays in the URL afterwards (a filter is
   worth bookmarking/sharing/surviving a refresh, unlike a one-shot "open the sheet" signal).
+- 2026-08-19 — User-reported: four always-visible filter Selects (status/priority/category/
+  project) on `/tasks` — right after Project became the fourth — felt overwhelming. Collapsed
+  into a single "Filters" `Popover` trigger with a count badge (only shows when a filter is
+  active) and a "Clear all" action, holding all four Selects stacked with labels
+  (`components/form-field.tsx`, the same one every Sheet form already uses — no new label
+  pattern invented). Toolbar footprint drops from 6 always-visible controls (search + 4
+  filters + sort) to 3 (search + Filters + sort), with the same information (which filters
+  are active) now surfaced via the badge instead of via always-showing every control.
