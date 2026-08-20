@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import {
   Select,
   SelectContent,
@@ -40,9 +41,22 @@ interface TaskFiltersProps {
 export function TaskFilters({ filters, onChange }: TaskFiltersProps) {
   const { data: categories } = useCategories();
 
-  const categoryItems = {
+  // `items`' labels can be any ReactNode, so the trigger can show the same
+  // color dot as the popup list below, not just a plain name.
+  const categoryItems: Record<string, ReactNode> = {
     [ALL]: "All categories",
-    ...Object.fromEntries((categories ?? []).map((c) => [c.id, c.name])),
+    ...Object.fromEntries(
+      (categories ?? []).map((c) => [
+        c.id,
+        <span key={c.id} className="flex items-center gap-2">
+          <span
+            className="size-2 rounded-full"
+            style={{ backgroundColor: c.color ?? undefined }}
+          />
+          {c.name}
+        </span>,
+      ]),
+    ),
   };
 
   return (
@@ -51,7 +65,10 @@ export function TaskFilters({ filters, onChange }: TaskFiltersProps) {
         items={STATUS_ITEMS}
         value={filters.status ?? ALL}
         onValueChange={(v) =>
-          onChange({ ...filters, status: v === ALL ? undefined : (v as TaskFiltersValue["status"]) })
+          onChange({
+            ...filters,
+            status: v === ALL ? undefined : (v as TaskFiltersValue["status"]),
+          })
         }
       >
         <SelectTrigger className="w-36">
@@ -71,7 +88,8 @@ export function TaskFilters({ filters, onChange }: TaskFiltersProps) {
         onValueChange={(v) =>
           onChange({
             ...filters,
-            priority: v === ALL ? undefined : (v as TaskFiltersValue["priority"]),
+            priority:
+              v === ALL ? undefined : (v as TaskFiltersValue["priority"]),
           })
         }
       >
@@ -90,7 +108,9 @@ export function TaskFilters({ filters, onChange }: TaskFiltersProps) {
       <Select
         items={categoryItems}
         value={filters.categoryId ?? ALL}
-        onValueChange={(v) => onChange({ ...filters, categoryId: v && v !== ALL ? v : undefined })}
+        onValueChange={(v) =>
+          onChange({ ...filters, categoryId: v && v !== ALL ? v : undefined })
+        }
       >
         <SelectTrigger className="w-40">
           <SelectValue placeholder="Category" />
@@ -99,7 +119,13 @@ export function TaskFilters({ filters, onChange }: TaskFiltersProps) {
           <SelectItem value={ALL}>All categories</SelectItem>
           {categories?.map((category) => (
             <SelectItem key={category.id} value={category.id}>
-              {category.name}
+              <span className="flex items-center gap-2">
+                <span
+                  className="size-2 rounded-full"
+                  style={{ backgroundColor: category.color ?? undefined }}
+                />
+                {category.name}
+              </span>
             </SelectItem>
           ))}
         </SelectContent>

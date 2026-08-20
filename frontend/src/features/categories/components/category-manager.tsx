@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { useCategories, useCreateCategory, useDeleteCategory } from "@/features/categories/hooks";
+import { randomCategoryColor } from "@/lib/colors";
 
 // Compact management surface, triggered from the task form's category select
 // — not a full page. Own categories only (defaults can't be renamed/deleted,
@@ -17,7 +18,11 @@ export function CategoryManager() {
   const createCategory = useCreateCategory();
   const deleteCategory = useDeleteCategory();
   const [name, setName] = useState("");
-  const [color, setColor] = useState("#22d3ee");
+  // Randomly seeded, not a hardcoded default — most people don't want to
+  // think about a color for a quick category, but a flat default looks
+  // unfinished repeated across several. Picked from a theme-fitting
+  // hue/saturation/lightness band (see lib/colors.ts), not raw random RGB.
+  const [color, setColor] = useState(randomCategoryColor);
 
   const ownCategories = categories?.filter((c) => c.userId !== null) ?? [];
 
@@ -26,7 +31,14 @@ export function CategoryManager() {
     if (!name.trim()) return;
     createCategory.mutate(
       { name: name.trim(), color },
-      { onSuccess: () => setName("") },
+      {
+        onSuccess: () => {
+          setName("");
+          // Re-roll so the next category isn't silently stuck on whatever
+          // was just used.
+          setColor(randomCategoryColor());
+        },
+      },
     );
   }
 
