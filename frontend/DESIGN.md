@@ -478,6 +478,21 @@ reinventing per component:
     indicator, this page's commitment banner) — never the user's stored IANA `timezone`
     preference, which is a server-side interpretation setting, not something the browser's
     own clock needs to consult to know what time it is on the device actually being looked at.
+    - **Upgraded same day (user feedback: "much better with some micro interactions maybe
+      also a bit bigger and some animation on name or a glow that moves, something
+      interesting")**: split into two lines (greeting+name at `text-lg`, date on its own
+      smaller muted-mono line below) instead of one combined string; a time-of-day icon
+      (`Sun`/`Sunset`/`Moon`, changing on the same hour boundaries as the greeting text
+      itself — real information reinforcing what the words already say, not a fixed
+      ornament); a one-time `fadeInUp` entrance via Motion on page load (not a repeating
+      loop — this only needs to happen once); and a new `.animate-shimmer` utility
+      (`globals.css`) on the name specifically — a moving highlight sweeping across the text
+      via an animated `background-position` on a `background-clip: text` gradient, paused at
+      each end rather than a continuous scroll so it reads as a periodic flourish, not
+      something distracting. Plain CSS `@keyframes`, not Motion — same "ambient/continuous
+      effects are cheaper as CSS than a JS-driven loop" reasoning already documented for
+      `.animate-pulse-glow`, and the same restraint: one deliberate "feels alive" moment on
+      this page, not something reached for on every name anywhere in the app.
   - **"+N more tasks in your queue" link** under Up Next — `recommendations.tasks` is the
     *full* ranked list; `today.upNext` is only `tasks.slice(1, 4)`. Rather than let the rest of
     the queue disappear with no way to see it, `queuedCount` (full length minus whatever's

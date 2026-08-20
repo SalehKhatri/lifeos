@@ -230,6 +230,24 @@
   .animate-pulse-glow {
     animation: pulse-glow 3s ease-in-out infinite;
   }
+
+  /* A moving highlight sweeping across text — user-requested for the Today
+     page's greeting name ("glow that moves, something interesting"). Same
+     restraint as .animate-pulse-glow: one deliberate small "feels alive"
+     moment, not something reached for everywhere a name appears. */
+  .animate-shimmer {
+    background-image: linear-gradient(
+      100deg,
+      var(--accent-cyan) 35%,
+      oklch(0.94 0.05 195) 50%,
+      var(--accent-cyan) 65%
+    );
+    background-size: 250% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    animation: shimmer 4s ease-in-out infinite;
+  }
 }
 
 @keyframes pulse-glow {
@@ -239,5 +257,16 @@
   }
   50% {
     box-shadow: 0 0 24px 2px oklch(0.78 0.16 195 / 0.45), 0 0 3px oklch(0.78 0.16 195 / 0.7);
+  }
+}
+
+@keyframes shimmer {
+  0%,
+  15% {
+    background-position: 120% 0;
+  }
+  60%,
+  100% {
+    background-position: -120% 0;
   }
 }

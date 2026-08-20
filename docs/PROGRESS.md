@@ -882,3 +882,11 @@ Short record of decisions made and why, so you don't relitigate them later.
   rather than going through the centralized error handler. Smoke-tested end-to-end against
   the running dev server (11th login attempt and 6th registration attempt both correctly
   returned 429), test accounts cleaned up from the local DB afterward.
+- 2026-08-20 — Upgraded Today's greeting per user feedback ("much better with some micro
+  interactions... a bit bigger... some animation on name or a glow that moves, something
+  interesting"): split into two lines (bigger greeting+name, smaller date below), added a
+  time-of-day icon that changes on the same hour boundaries as the greeting text, a one-time
+  Motion `fadeInUp` entrance, and a new `.animate-shimmer` CSS utility (`globals.css`) — a
+  moving highlight sweeping across the name via an animated gradient `background-position`,
+  plain `@keyframes` (not Motion) same as `.animate-pulse-glow`'s existing ambient-effect
+  convention. Full reasoning in `frontend/DESIGN.md`.

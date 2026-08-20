@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { PartyPopper, Plus } from "lucide-react";
+import { motion } from "motion/react";
+import { PartyPopper, Plus, Sun, Sunset, Moon } from "lucide-react";
+import { fadeInUp } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QueryErrorState } from "@/components/query-error-state";
@@ -40,6 +42,15 @@ function greetingFor(hour: number): string {
   if (hour < 12) return "Good morning";
   if (hour < 17) return "Good afternoon";
   return "Good evening";
+}
+
+// Real information, not decoration — the icon changes with the same
+// boundaries as the greeting text itself rather than being a fixed
+// ornament, so it's reinforcing what the words already say, not filler.
+function GreetingIcon({ hour }: { hour: number }) {
+  if (hour < 12) return <Sun className="size-5 text-accent-cyan" />;
+  if (hour < 17) return <Sunset className="size-5 text-accent-cyan" />;
+  return <Moon className="size-5 text-accent-cyan" />;
 }
 
 export default function TodayPage() {
@@ -107,10 +118,33 @@ export default function TodayPage() {
           <h1 className="font-heading text-2xl font-semibold">Today</h1>
           {/* Static "Today" stays the actual heading (matches every other
               page's plain-name h1) — the greeting/date is a subtitle, not
-              a replacement for it. */}
-          <p className="text-sm text-muted-foreground">
-            {greetingFor(now.getHours())}
-            {user?.name ? `, ${user.name}` : ""} ·{" "}
+              a replacement for it. Given real presence of its own though
+              (user feedback: "much better... a bit bigger... something
+              interesting") — a one-time entrance (fadeInUp, not a repeating
+              loop — this only needs to happen once per page load), a
+              time-of-day icon that's real information rather than a fixed
+              ornament, and a moving shimmer on the name itself
+              (.animate-shimmer, globals.css) as this page's one deliberate
+              "feels alive" moment, same restraint as .animate-pulse-glow's
+              reserved-for-the-hero-card treatment elsewhere on this page. */}
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={fadeInUp}
+            className="mt-1 flex items-center gap-1.5"
+          >
+            <GreetingIcon hour={now.getHours()} />
+            <p className="font-heading text-lg text-muted-foreground">
+              {greetingFor(now.getHours())}
+              {user?.name && (
+                <>
+                  {", "}
+                  <span className="animate-shimmer font-semibold">{user.name}</span>
+                </>
+              )}
+            </p>
+          </motion.div>
+          <p className="mt-0.5 font-mono text-xs text-muted-foreground/70">
             {now.toLocaleDateString(undefined, {
               weekday: "long",
               month: "long",
