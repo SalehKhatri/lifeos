@@ -1,11 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { FolderKanban, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
@@ -29,11 +27,23 @@ import { staggerContainer, fadeInUp } from "@/lib/motion";
 import { useCompleteTask, useDeleteTask } from "@/features/tasks/hooks";
 import type { Task, TaskPriority } from "@/types";
 
-const PRIORITY_VARIANT: Record<TaskPriority, "secondary" | "cyan" | "amber" | "magenta"> = {
-  LOW: "secondary",
-  MEDIUM: "cyan",
-  HIGH: "amber",
-  URGENT: "magenta",
+// Priority reads as a system-level HUD signal (a colored edge + a small
+// tracked-uppercase label), not a filled Badge like category/project — see
+// frontend/DESIGN.md's accent-token convention: cyan/amber/magenta glow is
+// reserved for things that should actually stand out, so only HIGH/URGENT
+// get a glowing edge. LOW/MEDIUM stay understated on purpose.
+const PRIORITY_EDGE: Record<TaskPriority, string> = {
+  LOW: "bg-border",
+  MEDIUM: "bg-accent-cyan",
+  HIGH: "bg-accent-amber shadow-glow-amber",
+  URGENT: "bg-accent-magenta shadow-glow-magenta",
+};
+
+const PRIORITY_TEXT: Record<TaskPriority, string> = {
+  LOW: "text-muted-foreground",
+  MEDIUM: "text-accent-cyan",
+  HIGH: "text-accent-amber",
+  URGENT: "text-accent-magenta",
 };
 
 const PRIORITY_LABEL: Record<TaskPriority, string> = {
@@ -74,84 +84,16 @@ export function TaskList({ tasks, onEdit }: TaskListProps) {
         variants={staggerContainer}
         className="space-y-2"
       >
-        {tasks.map((task) => {
-          const done = task.status === "DONE";
-          return (
-            <motion.div key={task.id} variants={fadeInUp}>
-              <Card>
-                <CardContent className="flex items-center gap-3 py-3">
-                  <Checkbox
-                    checked={done}
-                    onCheckedChange={() => {
-                      if (!done) completeTask.mutate(task.id);
-                    }}
-                    aria-label={done ? "Completed" : "Mark complete"}
-                    disabled={done}
-                  />
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <p
-                      className={cn(
-                        "truncate font-medium",
-                        done && "text-muted-foreground line-through",
-                      )}
-                    >
-                      {task.title}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <Badge variant={PRIORITY_VARIANT[task.priority]}>
-                        {PRIORITY_LABEL[task.priority]}
-                      </Badge>
-                      {task.category && (
-                        <Badge variant="outline" className="gap-1">
-                          <span
-                            className="size-1.5 rounded-full"
-                            style={{ backgroundColor: task.category.color ?? undefined }}
-                          />
-                          {task.category.name}
-                        </Badge>
-                      )}
-                      {task.deadline && (
-                        <span className="font-mono">
-                          {new Date(task.deadline).toLocaleString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      )}
-                      <span className="font-mono">{task.estimatedDuration}m</span>
-                    </div>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      render={
-                        <Button variant="ghost" size="icon-sm" aria-label="Task actions" />
-                      }
-                    >
-                      <MoreVertical />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuGroup>
-                        <DropdownMenuItem onClick={() => onEdit(task)}>
-                          <Pencil className="mr-2 size-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={() => setDeleteTarget(task)}
-                        >
-                          <Trash2 className="mr-2 size-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuGroup>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </CardContent>
-              </Card>
-            </motion.div>
-          );
-        })}
+        {tasks.map((task) => (
+          <motion.div key={task.id} variants={fadeInUp}>
+            <TaskCard
+              task={task}
+              onEdit={() => onEdit(task)}
+              onDelete={() => setDeleteTarget(task)}
+              onComplete={() => completeTask.mutate(task.id)}
+            />
+          </motion.div>
+        ))}
       </motion.div>
 
       <AlertDialog open={deleteTarget !== null} onOpenChange={(o) => !o && setDeleteTarget(null)}>
@@ -177,5 +119,167 @@ export function TaskList({ tasks, onEdit }: TaskListProps) {
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+interface TaskCardProps {
+  task: Task;
+  onEdit: () => void;
+  onDelete: () => void;
+  onComplete: () => void;
+}
+
+function TaskCard({ task, onEdit, onDelete, onComplete }: TaskCardProps) {
+  const done = task.status === "DONE";
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Cursor-tracked highlight, not a static hover state — see
+  // frontend/DESIGN.md's "reactive, not static" microinteraction principle
+  // (the auth pages' cursor-as-torch orbs are the reference example). Writes
+  // the pointer position straight to CSS custom properties on the DOM node
+  // instead of React state — pointermove fires constantly, and a re-render
+  // per pixel of mouse movement would be wasteful on a list that can hold
+  // many of these at once.
+  function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    cardRef.current?.style.setProperty("--glow-x", `${e.clientX - rect.left}px`);
+    cardRef.current?.style.setProperty("--glow-y", `${e.clientY - rect.top}px`);
+  }
+
+  return (
+    <div
+      ref={cardRef}
+      onPointerMove={handlePointerMove}
+      className={cn(
+        "group/task relative flex items-center gap-3 overflow-hidden rounded-lg bg-card py-3 pr-3 pl-4 text-sm text-card-foreground ring-1 ring-foreground/10 transition-transform duration-150 hover:-translate-y-0.5",
+        done && "opacity-60",
+      )}
+    >
+      {/* Priority edge — a HUD status stripe, not just a badge in the text. */}
+      <span
+        aria-hidden
+        className={cn(
+          "absolute inset-y-0 left-0 w-0.75",
+          done ? "bg-border" : PRIORITY_EDGE[task.priority],
+        )}
+      />
+
+      {/* Targeting-frame corner ticks — idle at low opacity, brighten on hover. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute top-0 left-0.75 h-3 w-3 border-t-2 border-l-2 border-accent-cyan/15 transition-colors duration-150 group-hover/task:border-accent-cyan/60"
+      />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute right-0 bottom-0 h-3 w-3 border-r-2 border-b-2 border-accent-cyan/15 transition-colors duration-150 group-hover/task:border-accent-cyan/60"
+      />
+
+      {/* Cursor-follow highlight — references the accent-cyan token via
+          color-mix rather than a hardcoded color, per DESIGN.md's rule. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 group-hover/task:opacity-100"
+        style={{
+          background:
+            "radial-gradient(220px circle at var(--glow-x, 50%) var(--glow-y, 50%), color-mix(in oklch, var(--accent-cyan) 8%, transparent), transparent 70%)",
+        }}
+      />
+
+      <Checkbox
+        checked={done}
+        onCheckedChange={() => {
+          if (!done) onComplete();
+        }}
+        aria-label={done ? "Completed" : "Mark complete"}
+        disabled={done}
+        className="relative z-10"
+      />
+
+      <div className="relative z-10 min-w-0 flex-1 space-y-1.5">
+        <div className="flex items-center gap-2">
+          {task.status === "IN_PROGRESS" && (
+            <span
+              aria-hidden
+              className="size-1.5 shrink-0 animate-pulse rounded-full bg-accent-cyan"
+              title="In progress"
+            />
+          )}
+          <p className={cn("truncate font-medium", done && "text-muted-foreground line-through")}>
+            {task.title}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
+          {/* Priority: a small readout, not a filled pill — reserves the
+              filled/glowing treatment for the edge stripe above. */}
+          <span
+            className={cn(
+              "font-heading font-semibold tracking-wider uppercase",
+              done ? "text-muted-foreground" : PRIORITY_TEXT[task.priority],
+            )}
+          >
+            {PRIORITY_LABEL[task.priority]}
+          </span>
+
+          {task.project && (
+            <span className="flex items-center gap-1 rounded-sm border border-accent-cyan/25 bg-accent-cyan/10 px-1.5 py-0.5 text-accent-cyan">
+              <FolderKanban className="size-3" />
+              {task.project.name}
+            </span>
+          )}
+
+          {task.category && (
+            <span
+              className="flex items-center gap-1.5 rounded-sm border px-1.5 py-0.5"
+              style={{
+                borderColor: `${task.category.color ?? "var(--border)"}40`,
+                backgroundColor: `${task.category.color ?? "transparent"}1a`,
+                color: task.category.color ?? undefined,
+              }}
+            >
+              <span
+                className="size-1.5 rounded-full"
+                style={{ backgroundColor: task.category.color ?? undefined }}
+              />
+              {task.category.name}
+            </span>
+          )}
+
+          {task.deadline && (
+            <span className="font-mono">
+              {new Date(task.deadline).toLocaleString(undefined, {
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+            </span>
+          )}
+          <span className="font-mono">{task.estimatedDuration}m</span>
+        </div>
+      </div>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button variant="ghost" size="icon-sm" aria-label="Task actions" />}
+          className="relative z-10"
+        >
+          <MoreVertical />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuGroup>
+            <DropdownMenuItem onClick={onEdit}>
+              <Pencil className="mr-2 size-4" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onClick={onDelete}>
+              <Trash2 className="mr-2 size-4" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }

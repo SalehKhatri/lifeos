@@ -438,3 +438,19 @@ Short record of decisions made and why, so you don't relitigate them later.
   create. (3) Task filter's category select now shows the color dot in its
   trigger too, not just the open list (same `items`-accepts-ReactNode
   mechanism as the label-resolution fix).
+- 2026-08-19 — Task card redesign after user feedback ("boring", didn't
+  match the HUD/Jarvis direction): added a priority-colored edge stripe
+  (glowing only for HIGH/URGENT, per the "reserved, not default" accent
+  rule), corner targeting-frame ticks, and a cursor-follow radial highlight
+  (written directly to CSS vars in the pointermove handler, not React state —
+  same reasoning as the auth pages' cursor-torch effect). Priority moved from
+  a filled `Badge` to a small text readout (the edge stripe already carries
+  the filled/glow treatment). Category is now a chip using its own color
+  dynamically instead of a plain outline badge + dot; Project — previously
+  not rendered at all, even though `Task.project` already comes back from the
+  API — is now shown as a fixed accent-cyan chip when present, ahead of
+  Phase 3 adding a way to actually set it from the frontend. Added a small
+  pulsing dot for `IN_PROGRESS` tasks (previously visually identical to
+  `TODO`). Also fixed `Badge`'s hardcoded `rounded-4xl` pill shape to
+  `rounded-sm`, matching this theme's deliberately sharper `--radius` token.
+  Full reasoning in `frontend/DESIGN.md`.

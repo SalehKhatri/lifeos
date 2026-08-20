@@ -137,6 +137,29 @@ reinventing per component:
   `ListTodo`'s consumer-to-do-app read), `FolderKanban`/`CalendarClock`/`Settings`/`LogOut`
   kept as-is — already clear, professional, not generic. Reconsider each new icon this
   deliberately rather than grabbing the first lucide match for the word.
+- **Task card (`features/tasks/components/task-list.tsx`)** is the reference example for
+  turning an ordinary list row into something that reads as HUD, not admin-dashboard:
+  a colored priority **edge stripe** on the left (glowing for HIGH/URGENT only, per the
+  "reserved, not default" accent rule — LOW/MEDIUM stay a plain/cyan bar), **corner ticks**
+  (small targeting-frame brackets, idle at low opacity, brightening on hover) instead of a
+  plain bordered rectangle, and a **cursor-follow radial highlight** inside the card (written
+  straight to CSS vars on the DOM node in the pointermove handler, not React state — same
+  "don't re-render per pixel" reasoning as the auth pages' torch effect, just without needing
+  a spring since this is a per-row effect, not an ambient one). Priority itself is a small
+  tracked-uppercase text readout, not a filled `Badge` — the filled/glowing treatment already
+  lives on the edge stripe, so repeating it as a pill would be redundant. Category and Project
+  (once Phase 3 lands a way to set the latter — the `Task.project` relation already comes back
+  from the API and is rendered if present) are chips instead: category uses its own color
+  dynamically (`${color}1a` background tint, `${color}40` border, via inline `style`, since a
+  per-category color can't be a static Tailwind class); project uses a fixed accent-cyan tint +
+  `FolderKanban` icon, since it's structural (one fixed meaning) rather than user-colored. An
+  `IN_PROGRESS` task also gets a small `animate-pulse` cyan dot next to its title — the list had
+  no visual distinction between `TODO` and `IN_PROGRESS` before, only done-vs-not.
+- **`Badge`'s radius fixed from shadcn's default pill (`rounded-4xl`) to `rounded-sm`** — a
+  full pill reads as a generic SaaS tag, at odds with the sharper `--radius` token this theme
+  already chose specifically for a more precise/HUD feel. Single consumer at the time of the
+  change (the task card above), so low-risk; do this once, systemically, rather than
+  special-casing radius per usage.
 - **Command palette instant-select: bare digit keys (1-9), not mnemonic letters or
   Cmd+letter.** The search input is focused by default when the palette opens, so a bare
   letter shortcut would just get typed as a query character instead of firing — and
