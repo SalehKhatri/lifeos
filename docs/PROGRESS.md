@@ -903,3 +903,9 @@ Short record of decisions made and why, so you don't relitigate them later.
   `text-decoration` doesn't animate reliably), and hover feedback on non-clickable badges
   (deliberately skipped — would misrepresent them as controls). Full reasoning in
   `frontend/DESIGN.md`.
+- 2026-08-20 — Micro-interactions pass, round 2. `CategoryManager` had zero motion and no
+  hover feedback despite genuinely interactive rows (rename/delete live on them) — added
+  `hover:bg-muted/40` plus the same stagger/`AnimatePresence` list treatment as round 1's
+  other lists. Tasks' search box's instant swap between its "/" shortcut hint and its clear
+  button is now an `AnimatePresence mode="wait"` crossfade (`TRANSITION_FAST`) instead of an
+  instant toggle. Full reasoning in `frontend/DESIGN.md`.

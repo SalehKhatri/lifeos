@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { AnimatePresence, motion } from "motion/react";
 import { Plus, Search, X } from "lucide-react";
+import { TRANSITION_FAST } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -192,20 +194,38 @@ export default function TasksPage() {
             placeholder="Search tasks…"
             className="h-8 pr-7 pl-8"
           />
-          {search ? (
-            <button
-              type="button"
-              onClick={() => setSearch("")}
-              aria-label="Clear search"
-              className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <X className="size-3.5" />
-            </button>
-          ) : (
-            <kbd className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 font-mono text-xs text-muted-foreground">
-              /
-            </kbd>
-          )}
+          {/* A crossfade, not an instant swap — this corner does two
+              different jobs (shortcut hint vs. clear action) depending on
+              whether there's a query, and the transition between them is
+              itself a small confirmation that typing was registered. */}
+          <AnimatePresence mode="wait">
+            {search ? (
+              <motion.button
+                key="clear"
+                type="button"
+                onClick={() => setSearch("")}
+                aria-label="Clear search"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={TRANSITION_FAST}
+                className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <X className="size-3.5" />
+              </motion.button>
+            ) : (
+              <motion.kbd
+                key="hint"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={TRANSITION_FAST}
+                className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 font-mono text-xs text-muted-foreground"
+              >
+                /
+              </motion.kbd>
+            )}
+          </AnimatePresence>
         </div>
 
         <TaskFilters

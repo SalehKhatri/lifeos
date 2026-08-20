@@ -587,6 +587,20 @@ reinventing per component:
     reaction on a non-control would misrepresent it as one, the opposite of "every visible
     element ... carries real information or is an unambiguous control."
 
+- **Micro-interactions pass — round 2.** `CategoryManager`
+  (`features/categories/components/category-manager.tsx`) had *zero* motion and no hover
+  feedback at all, despite its rows being genuinely interactive (rename/delete live right on
+  them) — unlike the read-only badges round 1 deliberately left alone, a hover cue here is
+  reinforcing a real affordance, not decorating a non-control, so it got `hover:bg-muted/40`.
+  Its list also gained the same stagger/`AnimatePresence`/keyed-empty-state treatment as every
+  other list from round 1 (creating/deleting a category used to just pop the row in/out with
+  no transition). Tasks' search box also had an instant swap between its "/" shortcut-hint
+  `kbd` and its clear (✕) button depending on whether there's a query — replaced with an
+  `AnimatePresence mode="wait"` crossfade (`TRANSITION_FAST`, not the base duration — this is
+  a small, frequently-triggered corner of the UI, and a lingering transition there would read
+  as sluggish rather than snappy) so the swap itself doubles as a small confirmation that
+  typing was registered.
+
 - **Filter bars collapse behind one "Filters" `Popover` once there are more than ~2-3
   axes**, rather than showing every `Select` inline — four always-visible filters
   (status/priority/category/project) on `/tasks`, right after Project became the fourth, was

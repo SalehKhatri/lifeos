@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import {
   useUpdateCategory,
 } from "@/features/categories/hooks";
 import { randomCategoryColor } from "@/lib/colors";
+import { fadeInUp, staggerContainer } from "@/lib/motion";
 import type { Category } from "@/types";
 
 // Compact management surface, triggered from the task form's category select
@@ -87,90 +89,121 @@ export function CategoryManager() {
         <p className="font-heading text-xs font-semibold tracking-widest text-muted-foreground uppercase">
           Your categories
         </p>
-        <div className="space-y-1">
-          {ownCategories.length === 0 && (
-            <p className="text-sm text-muted-foreground">No custom categories yet.</p>
-          )}
-          {ownCategories.map((category) => {
-            const isEditing = editingId === category.id;
-            return (
-              <div key={category.id} className="flex items-center gap-2 rounded-md px-1.5 py-1">
-                {/* Native color input, not a plain dot — swaps color and
-                    saves immediately on change (the picker closing is
-                    already its own "commit" gesture, no separate save step
-                    needed like the name below). */}
-                <input
-                  type="color"
-                  value={category.color ?? "#888888"}
-                  onChange={(e) =>
-                    updateCategory.mutate({ id: category.id, input: { color: e.target.value } })
-                  }
-                  className="size-5 shrink-0 cursor-pointer rounded-full border border-input bg-transparent p-0"
-                  aria-label={`Change color for ${category.name}`}
-                />
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={staggerContainer}
+          className="space-y-1"
+        >
+          {/* Same enter/exit convention as every other list in the app
+              (lib/motion.ts's fadeInUp + AnimatePresence's popLayout) —
+              this row was previously the one place a category could
+              appear/disappear (create/delete) with zero motion at all. */}
+          <AnimatePresence mode="popLayout">
+            {ownCategories.length === 0 ? (
+              <motion.p
+                key="empty"
+                variants={fadeInUp}
+                exit="exit"
+                className="text-sm text-muted-foreground"
+              >
+                No custom categories yet.
+              </motion.p>
+            ) : (
+              ownCategories.map((category) => {
+                const isEditing = editingId === category.id;
+                return (
+                  <motion.div key={category.id} layout variants={fadeInUp} exit="exit">
+                    <div
+                      // Hover feedback added here — unlike a read-only
+                      // category badge elsewhere in the app, this row is
+                      // genuinely interactive (rename/delete live right on
+                      // it), so a hover cue is reinforcing a real
+                      // affordance, not decorating a non-control.
+                      className="flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors hover:bg-muted/40"
+                    >
+                      {/* Native color input, not a plain dot — swaps color
+                          and saves immediately on change (the picker
+                          closing is already its own "commit" gesture, no
+                          separate save step needed like the name below). */}
+                      <input
+                        type="color"
+                        value={category.color ?? "#888888"}
+                        onChange={(e) =>
+                          updateCategory.mutate({
+                            id: category.id,
+                            input: { color: e.target.value },
+                          })
+                        }
+                        className="size-5 shrink-0 cursor-pointer rounded-full border border-input bg-transparent p-0"
+                        aria-label={`Change color for ${category.name}`}
+                      />
 
-                {isEditing ? (
-                  <Input
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") commitEdit(category);
-                      if (e.key === "Escape") setEditingId(null);
-                    }}
-                    autoFocus
-                    className="h-7 flex-1"
-                  />
-                ) : (
-                  <span className="flex-1 truncate text-sm">{category.name}</span>
-                )}
+                      {isEditing ? (
+                        <Input
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") commitEdit(category);
+                            if (e.key === "Escape") setEditingId(null);
+                          }}
+                          autoFocus
+                          className="h-7 flex-1"
+                        />
+                      ) : (
+                        <span className="flex-1 truncate text-sm">{category.name}</span>
+                      )}
 
-                {isEditing ? (
-                  <>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={() => commitEdit(category)}
-                      aria-label={`Save ${category.name}`}
-                    >
-                      <Check />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={() => setEditingId(null)}
-                      aria-label="Cancel"
-                    >
-                      <X />
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={() => startEdit(category)}
-                      aria-label={`Rename ${category.name}`}
-                    >
-                      <Pencil />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={() => deleteCategory.mutate(category)}
-                      aria-label={`Delete ${category.name}`}
-                    >
-                      <Trash2 className="text-destructive" />
-                    </Button>
-                  </>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                      {isEditing ? (
+                        <>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={() => commitEdit(category)}
+                            aria-label={`Save ${category.name}`}
+                          >
+                            <Check />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={() => setEditingId(null)}
+                            aria-label="Cancel"
+                          >
+                            <X />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={() => startEdit(category)}
+                            aria-label={`Rename ${category.name}`}
+                          >
+                            <Pencil />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={() => deleteCategory.mutate(category)}
+                            aria-label={`Delete ${category.name}`}
+                          >
+                            <Trash2 className="text-destructive" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })
+            )}
+          </AnimatePresence>
+        </motion.div>
         <Separator />
         <form onSubmit={handleCreate} className="flex items-center gap-2">
           <input
