@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Check, FolderKanban, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import {
+  Check,
+  FolderKanban,
+  MoreVertical,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import {
@@ -83,7 +89,9 @@ export function StatusLabel({ status }: { status: TaskStatus }) {
         aria-hidden
         className={cn(
           "size-1.5 rounded-full",
-          status === "IN_PROGRESS" ? "animate-pulse bg-accent-cyan" : "bg-muted-foreground",
+          status === "IN_PROGRESS"
+            ? "animate-pulse bg-accent-cyan"
+            : "bg-muted-foreground",
         )}
       />
       {status === "IN_PROGRESS" ? "In Progress" : "To Do"}
@@ -147,13 +155,16 @@ export function TaskList({ tasks, onEdit }: TaskListProps) {
         ))}
       </motion.div>
 
-      <AlertDialog open={deleteTarget !== null} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this task?</AlertDialogTitle>
             <AlertDialogDescription>
-              &ldquo;{deleteTarget?.title}&rdquo; will be permanently deleted. This can&apos;t be
-              undone.
+              &ldquo;{deleteTarget?.title}&rdquo; will be permanently deleted.
+              This can&apos;t be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -184,7 +195,12 @@ export interface TaskCardProps {
 // Exported — the Today page's "Up Next" list (Phase 5) reuses this exact
 // card rather than a second, slightly-different one, so a task looks and
 // behaves identically whether you're looking at it from /tasks or /today.
-export function TaskCard({ task, onEdit, onDelete, onStatusChange }: TaskCardProps) {
+export function TaskCard({
+  task,
+  onEdit,
+  onDelete,
+  onStatusChange,
+}: TaskCardProps) {
   const done = task.status === "DONE";
   const urgency = getDeadlineUrgency(task.deadline, done);
   const priorityBorder = !done ? PRIORITY_BORDER[task.priority] : undefined;
@@ -235,7 +251,12 @@ export function TaskCard({ task, onEdit, onDelete, onStatusChange }: TaskCardPro
             </SelectContent>
           </Select>
 
-          <p className={cn("min-w-0 flex-1 truncate font-medium", done && "line-through")}>
+          <p
+            className={cn(
+              "min-w-0 flex-1 truncate font-medium",
+              done && "line-through",
+            )}
+          >
             {task.title}
           </p>
         </div>
@@ -260,8 +281,12 @@ export function TaskCard({ task, onEdit, onDelete, onStatusChange }: TaskCardPro
             <span
               className={cn(
                 "font-mono",
-                !done && urgency === "overdue" && "font-semibold text-destructive",
-                !done && urgency === "due-today" && "font-semibold text-accent-amber",
+                !done &&
+                  urgency === "overdue" &&
+                  "font-semibold text-destructive",
+                !done &&
+                  urgency === "due-today" &&
+                  "font-semibold text-accent-amber",
               )}
             >
               {new Date(task.deadline).toLocaleString(undefined, {
@@ -285,10 +310,12 @@ export function TaskCard({ task, onEdit, onDelete, onStatusChange }: TaskCardPro
                 color: task.category.color ?? undefined,
               }}
             >
-              <span
-                className="size-1.5 rounded-full"
-                style={{ backgroundColor: task.category.color ?? undefined }}
-              />
+              {task.category.color && (
+                <span
+                  className="size-1.5 rounded-full"
+                  style={{ backgroundColor: task.category.color ?? undefined }}
+                />
+              )}
               {task.category.name}
             </span>
           )}
@@ -303,7 +330,11 @@ export function TaskCard({ task, onEdit, onDelete, onStatusChange }: TaskCardPro
       </div>
 
       <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label="Task actions" />}>
+        <DropdownMenuTrigger
+          render={
+            <Button variant="ghost" size="icon-sm" aria-label="Task actions" />
+          }
+        >
           <MoreVertical />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">

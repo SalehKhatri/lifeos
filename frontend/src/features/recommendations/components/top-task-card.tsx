@@ -2,7 +2,10 @@
 
 import { Check, FolderKanban, Pencil, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PRIORITY_LABEL, PRIORITY_TEXT } from "@/features/tasks/components/task-list";
+import {
+  PRIORITY_LABEL,
+  PRIORITY_TEXT,
+} from "@/features/tasks/components/task-list";
 import { getDeadlineUrgency } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 import type { RecommendedTask } from "@/types";
@@ -21,7 +24,12 @@ interface TopTaskCardProps {
 // page (Today), not this component — same "parent owns mutations, child
 // gets callbacks" convention as every other card in the app — so the page
 // can wire the same action to both this button and a keyboard shortcut.
-export function TopTaskCard({ task, onEdit, onMarkDone, isMarkingDone }: TopTaskCardProps) {
+export function TopTaskCard({
+  task,
+  onEdit,
+  onMarkDone,
+  isMarkingDone,
+}: TopTaskCardProps) {
   const urgency = getDeadlineUrgency(task.deadline, false);
 
   return (
@@ -84,10 +92,12 @@ export function TopTaskCard({ task, onEdit, onMarkDone, isMarkingDone }: TopTask
               color: task.category.color ?? undefined,
             }}
           >
-            <span
-              className="size-1.5 rounded-full"
-              style={{ backgroundColor: task.category.color ?? undefined }}
-            />
+            {task.category.color && (
+              <span
+                className="size-1.5 rounded-full"
+                style={{ backgroundColor: task.category.color ?? undefined }}
+              />
+            )}
             {task.category.name}
           </span>
         )}
