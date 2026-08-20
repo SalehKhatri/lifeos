@@ -512,6 +512,22 @@ examples you'll find in most shadcn docs/tutorials online. Differences actually 
   create/update branches were never merged into one shared object) — the general rule going
   forward: never share one payload object across create and update for a resource with any
   nullable-on-update field; branch it, or coalesce to `null` only inside the update path.
+- **Every data-fetching page must check its query's `isError`, not just `isLoading`.**
+  Phase 7 audit found none of them did — a failed fetch (`isLoading` goes `false`, `data`
+  stays `undefined`) fell straight through to that page's *empty*-state copy ("No tasks
+  match these filters," "Fully free," "You're all caught up"), silently misrepresenting a
+  network/server failure as "you genuinely have nothing here." Fixed with a shared
+  `components/query-error-state.tsx` (message + a "Try again" `Button` wired to the query's
+  own `refetch`) — reach for this in every future page's data-loading branch, alongside the
+  loading skeleton, before falling through to the empty-state branch. A page with more than
+  one query whose failures should read as one thing (Today's `topTask`/`upNext`/
+  `commitments`, all from a single `/today` call) shows one error state for the group, not
+  one per section — they fail together, so they should read that way.
+- **Every destructive `AlertDialogAction` uses `variant="destructive"`.** Found via the same
+  audit: Tasks/Projects/Schedule/Today's delete-confirmation buttons were all left at the
+  default button variant — only Settings' delete-account confirmation had this right.
+  `AlertDialogAction` is just a plain `Button` under the hood with no default variant of its
+  own, so this has to be set explicitly every time, not assumed.
 
 ## Re-skinning later
 

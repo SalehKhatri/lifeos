@@ -159,6 +159,7 @@ export function TaskList({ tasks, onEdit }: TaskListProps) {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
+              variant="destructive"
               onClick={() => {
                 if (deleteTarget) deleteTask.mutate(deleteTarget);
                 setDeleteTarget(null);

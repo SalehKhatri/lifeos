@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { PartyPopper, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryErrorState } from "@/components/query-error-state";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,7 +32,7 @@ function isTypingTarget(target: EventTarget | null) {
 }
 
 export default function TodayPage() {
-  const { data: today, isLoading } = useTodayView();
+  const { data: today, isLoading, isError, refetch } = useTodayView();
   const { data: recommendations } = useRecommendations();
   const completeTask = useCompleteTask();
   const setStatus = useSetTaskStatus();
@@ -93,53 +94,62 @@ export default function TodayPage() {
         </p>
       )}
 
-      {isLoading ? (
-        <Skeleton className="h-48 w-full" />
-      ) : today?.topTask ? (
-        <TopTaskCard
-          task={today.topTask}
-          onEdit={() => openEdit(today.topTask!)}
-          onMarkDone={() => completeTask.mutate(today.topTask!)}
-          isMarkingDone={completeTask.isPending}
-        />
+      {isError ? (
+        // One error state for all three sections below, not three separate
+        // ones — topTask/upNext/commitments all come from this same query,
+        // so they fail together, not independently.
+        <QueryErrorState onRetry={() => refetch()} />
       ) : (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border py-16 text-center">
-          <PartyPopper className="size-6 text-accent-cyan" />
-          <p className="text-sm text-muted-foreground">
-            Nothing needs attention right now — you&apos;re all caught up.
-          </p>
-        </div>
-      )}
+        <>
+          {isLoading ? (
+            <Skeleton className="h-48 w-full" />
+          ) : today?.topTask ? (
+            <TopTaskCard
+              task={today.topTask}
+              onEdit={() => openEdit(today.topTask!)}
+              onMarkDone={() => completeTask.mutate(today.topTask!)}
+              isMarkingDone={completeTask.isPending}
+            />
+          ) : (
+            <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border py-16 text-center">
+              <PartyPopper className="size-6 text-accent-cyan" />
+              <p className="text-sm text-muted-foreground">
+                Nothing needs attention right now — you&apos;re all caught up.
+              </p>
+            </div>
+          )}
 
-      {!isLoading && today && today.upNext.length > 0 && (
-        <div className="space-y-2">
-          <h2 className="font-heading text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-            Up Next
-          </h2>
+          {!isLoading && today && today.upNext.length > 0 && (
+            <div className="space-y-2">
+              <h2 className="font-heading text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+                Up Next
+              </h2>
+              <div className="space-y-2">
+                {today.upNext.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    onEdit={() => openEdit(task)}
+                    onDelete={() => setDeleteTarget(task)}
+                    onStatusChange={(status) => setStatus.mutate({ task, status })}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
-            {today.upNext.map((task) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                onEdit={() => openEdit(task)}
-                onDelete={() => setDeleteTarget(task)}
-                onStatusChange={(status) => setStatus.mutate({ task, status })}
-              />
-            ))}
+            <h2 className="font-heading text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+              Today&apos;s Commitments
+            </h2>
+            {isLoading ? (
+              <Skeleton className="h-16 w-full" />
+            ) : (
+              <TodaysCommitments commitments={today?.commitments ?? []} />
+            )}
           </div>
-        </div>
+        </>
       )}
-
-      <div className="space-y-2">
-        <h2 className="font-heading text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-          Today&apos;s Commitments
-        </h2>
-        {isLoading ? (
-          <Skeleton className="h-16 w-full" />
-        ) : (
-          <TodaysCommitments commitments={today?.commitments ?? []} />
-        )}
-      </div>
 
       <TaskFormSheet open={sheetOpen} onOpenChange={setSheetOpen} task={editingTask} />
 
@@ -155,6 +165,7 @@ export default function TodayPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
+              variant="destructive"
               onClick={() => {
                 if (deleteTarget) deleteTask.mutate(deleteTarget);
                 setDeleteTarget(null);

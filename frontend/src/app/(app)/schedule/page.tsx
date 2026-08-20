@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryErrorState } from "@/components/query-error-state";
 import { ScheduleList } from "@/features/schedule/components/schedule-list";
 import { ScheduleFormSheet } from "@/features/schedule/components/schedule-form-sheet";
 import { useScheduleBlocks } from "@/features/schedule/hooks";
@@ -21,7 +22,7 @@ function isTypingTarget(target: EventTarget | null) {
 export default function SchedulePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: blocks, isLoading } = useScheduleBlocks();
+  const { data: blocks, isLoading, isError, refetch } = useScheduleBlocks();
   // Lazy initializer, not an effect — see app/(app)/tasks/page.tsx's
   // identical pattern for why (react-hooks/set-state-in-effect).
   const [sheetOpen, setSheetOpen] = useState(() => Boolean(searchParams.get("new")));
@@ -78,7 +79,7 @@ export default function SchedulePage() {
         </Button>
       </div>
 
-      {!isLoading && (
+      {!isLoading && !isError && (
         <div className="flex items-center gap-4 font-mono text-xs text-muted-foreground">
           <span>
             {(blocks ?? []).length} commitment{(blocks ?? []).length === 1 ? "" : "s"}
@@ -93,6 +94,8 @@ export default function SchedulePage() {
             <Skeleton key={i} className="h-16 w-full" />
           ))}
         </div>
+      ) : isError ? (
+        <QueryErrorState onRetry={() => refetch()} />
       ) : (
         <ScheduleList blocks={blocks ?? []} onEdit={openEdit} />
       )}

@@ -184,6 +184,7 @@ export function ScheduleList({ blocks, onEdit }: ScheduleListProps) {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
+              variant="destructive"
               onClick={() => {
                 if (deleteTarget) deleteBlock.mutate(deleteTarget);
                 setDeleteTarget(null);

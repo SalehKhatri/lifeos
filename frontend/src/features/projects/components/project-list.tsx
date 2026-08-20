@@ -132,6 +132,7 @@ export function ProjectList({ projects, onEdit }: ProjectListProps) {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
+              variant="destructive"
               onClick={() => {
                 if (deleteTarget) deleteProject.mutate(deleteTarget);
                 setDeleteTarget(null);

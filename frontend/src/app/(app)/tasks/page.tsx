@@ -14,11 +14,17 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryErrorState } from "@/components/query-error-state";
 import { TaskFilters } from "@/features/tasks/components/task-filters";
 import { TaskList } from "@/features/tasks/components/task-list";
 import { TaskFormSheet } from "@/features/tasks/components/task-form-sheet";
 import { useTasks } from "@/features/tasks/hooks";
-import { computeTaskStats, searchTasks, sortTasks, type TaskSort } from "@/features/tasks/sort";
+import {
+  computeTaskStats,
+  searchTasks,
+  sortTasks,
+  type TaskSort,
+} from "@/features/tasks/sort";
 import type { TaskFilters as TaskFiltersValue } from "@/features/tasks/api";
 import type { Task } from "@/types";
 
@@ -31,7 +37,9 @@ const SORT_ITEMS: Record<TaskSort, string> = {
 function isTypingTarget(target: EventTarget | null) {
   return (
     target instanceof HTMLElement &&
-    (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
+    (target.tagName === "INPUT" ||
+      target.tagName === "TEXTAREA" ||
+      target.isContentEditable)
   );
 }
 
@@ -45,13 +53,15 @@ export default function TasksPage() {
     const projectId = searchParams.get("projectId");
     return projectId ? { projectId } : {};
   });
-  const { data: tasks, isLoading } = useTasks(filters);
+  const { data: tasks, isLoading, isError, refetch } = useTasks(filters);
   // Lazy initializer, not an effect — deriving state from the URL at mount
   // is exactly what useState's initializer is for; setting it from an
   // effect instead trips react-hooks/set-state-in-effect and adds a
   // needless extra render. See the cleanup effect below for why the "new"
   // param still needs one (just not for this).
-  const [sheetOpen, setSheetOpen] = useState(() => Boolean(searchParams.get("new")));
+  const [sheetOpen, setSheetOpen] = useState(() =>
+    Boolean(searchParams.get("new")),
+  );
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<TaskSort>("deadline");
@@ -60,7 +70,10 @@ export default function TasksPage() {
 
   const SORT_ORDER: TaskSort[] = ["deadline", "priority", "created"];
   function cycleSort() {
-    setSort((current) => SORT_ORDER[(SORT_ORDER.indexOf(current) + 1) % SORT_ORDER.length]);
+    setSort(
+      (current) =>
+        SORT_ORDER[(SORT_ORDER.indexOf(current) + 1) % SORT_ORDER.length],
+    );
   }
 
   function openCreate() {
@@ -151,10 +164,14 @@ export default function TasksPage() {
             {stats.total} task{stats.total === 1 ? "" : "s"} shown
           </span>
           {stats.overdue > 0 && (
-            <span className="font-semibold text-destructive">{stats.overdue} overdue</span>
+            <span className="font-semibold text-destructive">
+              {stats.overdue} overdue
+            </span>
           )}
           {stats.dueToday > 0 && (
-            <span className="font-semibold text-accent-amber">{stats.dueToday} due today</span>
+            <span className="font-semibold text-accent-amber">
+              {stats.dueToday} due today
+            </span>
           )}
         </div>
       )}
@@ -200,7 +217,11 @@ export default function TasksPage() {
 
         <Separator orientation="vertical" className="h-5" />
 
-        <Select items={SORT_ITEMS} value={sort} onValueChange={(v) => setSort(v as TaskSort)}>
+        <Select
+          items={SORT_ITEMS}
+          value={sort}
+          onValueChange={(v) => setSort(v as TaskSort)}
+        >
           <SelectTrigger className="h-8 w-44">
             <SelectValue />
           </SelectTrigger>
@@ -210,7 +231,9 @@ export default function TasksPage() {
             <SelectItem value="created">Newest first</SelectItem>
           </SelectContent>
         </Select>
-        <kbd className="font-mono text-xs text-muted-foreground opacity-70">s</kbd>
+        <kbd className="font-mono text-xs text-muted-foreground opacity-70">
+          s
+        </kbd>
       </div>
 
       {isLoading ? (
@@ -219,11 +242,17 @@ export default function TasksPage() {
             <Skeleton key={i} className="h-16 w-full" />
           ))}
         </div>
+      ) : isError ? (
+        <QueryErrorState onRetry={() => refetch()} />
       ) : (
         <TaskList tasks={visibleTasks} onEdit={openEdit} />
       )}
 
-      <TaskFormSheet open={sheetOpen} onOpenChange={setSheetOpen} task={editingTask} />
+      <TaskFormSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        task={editingTask}
+      />
     </div>
   );
 }

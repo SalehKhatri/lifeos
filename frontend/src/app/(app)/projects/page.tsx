@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryErrorState } from "@/components/query-error-state";
 import { ProjectFilters } from "@/features/projects/components/project-filters";
 import { ProjectList } from "@/features/projects/components/project-list";
 import { ProjectFormSheet } from "@/features/projects/components/project-form-sheet";
@@ -23,7 +24,7 @@ export default function ProjectsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [filters, setFilters] = useState<ProjectFiltersValue>({});
-  const { data: projects, isLoading } = useProjects(filters);
+  const { data: projects, isLoading, isError, refetch } = useProjects(filters);
   // Lazy initializer, not an effect — see app/(app)/tasks/page.tsx's
   // identical pattern for why (react-hooks/set-state-in-effect).
   const [sheetOpen, setSheetOpen] = useState(() => Boolean(searchParams.get("new")));
@@ -81,6 +82,8 @@ export default function ProjectsPage() {
             <Skeleton key={i} className="h-40 w-full" />
           ))}
         </div>
+      ) : isError ? (
+        <QueryErrorState onRetry={() => refetch()} />
       ) : (
         <ProjectList projects={projects ?? []} onEdit={openEdit} />
       )}

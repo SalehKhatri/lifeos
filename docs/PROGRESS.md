@@ -100,6 +100,7 @@ styling anything new.
 | Schedule page                          | ✅     | Phase 4 — 7-day grouped view, create/edit Sheet with time inputs, delete AlertDialog |
 | Today page                             | ✅     | Phase 5 — the priority page per `docs/ARCHITECTURE.md`: top-task hero card, "Up Next", today's commitments |
 | Settings page                          | ✅     | Phase 6 — profile (name + timezone combobox), danger-zone delete-account with password confirm |
+| Polish pass (Phase 7)                  | ✅     | Consistent loading/error/empty states across Tasks/Projects/Schedule/Today, destructive-styled delete confirmations everywhere, full clean rebuild |
 
 ## Known Issues / Fixes Needed
 
@@ -703,3 +704,17 @@ Short record of decisions made and why, so you don't relitigate them later.
   embedded password `Input` (per the plan) — doesn't auto-close on a failed attempt (wrong
   password), only a successful delete navigates away, same "closing is driven by this
   component's own state" pattern as every other delete flow in the app.
+- 2026-08-19 — Phase 7 (polish pass). Audited every data-fetching page (Tasks/Projects/
+  Schedule/Today) for a real gap: none checked a query's own `isError` — a failed fetch
+  (network blip, backend down) silently fell through to that page's *empty*-state copy
+  ("No tasks match these filters," "Fully free," "You're all caught up"), misrepresenting a
+  failure as genuinely having no data. Added a shared `components/query-error-state.tsx`
+  (message + a "Try again" button wired to the query's own `refetch`) and wired it into all
+  four pages — Today shows one error state covering topTask/upNext/commitments together
+  (all three come from the same `/today` query, so they fail together, not independently).
+  Also fixed a styling inconsistency found in the same pass: every delete-confirmation
+  `AlertDialogAction` (Tasks, Projects, Schedule, Today) was using the default button
+  variant, not `destructive` — only Settings' delete-account confirmation had it right.
+  Fixed everywhere. Full clean rebuild (`tsc --noEmit`, `eslint`, `next build`) across the
+  whole frontend confirms nothing regressed. This closes out the original approved frontend
+  build plan (Phases 0-7) in full.
