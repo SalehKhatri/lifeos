@@ -99,7 +99,7 @@ styling anything new.
 | Projects page                          | ✅     | Phase 3 — status filter, Card grid with progress bars, create/edit Sheet, delete AlertDialog, inline status control |
 | Schedule page                          | ✅     | Phase 4 — 7-day grouped view, create/edit Sheet with time inputs, delete AlertDialog |
 | Today page                             | ✅     | Phase 5 — the priority page per `docs/ARCHITECTURE.md`: top-task hero card, "Up Next", today's commitments |
-| Settings page                          | 🔲     | Phase 6 |
+| Settings page                          | ✅     | Phase 6 — profile (name + timezone combobox), danger-zone delete-account with password confirm |
 
 ## Known Issues / Fixes Needed
 
@@ -684,3 +684,22 @@ Short record of decisions made and why, so you don't relitigate them later.
   needed to change, only this one function's formula. Confirmed the fix numerically against
   the exact reported scenario (4:40am, 290 not-yet-elapsed commitment minutes, 870 available
   minutes returned = 14h30m) before shipping.
+- 2026-08-19 — Phase 6 (Settings) built. Confirmed the exact `PATCH`/`DELETE /auth/me`
+  contract first (`auth.validation.ts`): email is immutable (not in the schema at all), name
+  optional (trimmed, 1-100 chars), timezone optional (validated via `Intl.DateTimeFormat`
+  construction, not a static list), delete requires only a `password` field, wrong password
+  is a 401 "Invalid password" (indistinguishable from a no-password/OAuth-only account).
+  Timezone picker is a `Command`+`Popover` combobox per the plan — populated via
+  `Intl.supportedValuesOf("timeZone")`, deliberately different from the backend's own
+  `isValidTimeZone` check (that one avoids this exact API since it's missing some real-world
+  aliases; here the job is populating a *searchable pick-list*, where a comprehensive
+  standard list is the right tool — typing an alias directly would still validate
+  server-side even if it's not in this browse list). Kept `updateProfile`/`deleteAccount`
+  toast-free in `features/auth/hooks.ts` and instead handled toasts at the page's call
+  sites, matching auth's own established convention (already used by login/register) rather
+  than the toast-inside-the-hook convention every other feature uses — auth hooks are reused
+  across pages that each want different messaging, unlike a Task/Project/Schedule mutation
+  hook used from one obvious page. Delete-account confirmation is an `AlertDialog` with an
+  embedded password `Input` (per the plan) — doesn't auto-close on a failed attempt (wrong
+  password), only a successful delete navigates away, same "closing is driven by this
+  component's own state" pattern as every other delete flow in the app.

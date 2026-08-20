@@ -363,6 +363,22 @@ reinventing per component:
   invalidates `["today"]`/`["recommendations"]` (`features/tasks/hooks.ts`'s
   `invalidateTaskRelated`), not just `["tasks"]` — completing/editing/deleting a task from
   *anywhere* in the app can change what Today should rank next.
+- **Settings (`app/(app)/settings/`)** introduces this app's first standalone `Command`+
+  `Popover` combobox — the command palette also composes these two, but as a `CommandDialog`
+  triggered globally, a structurally different job from an inline field inside a form. The
+  timezone list is populated via `Intl.supportedValuesOf("timeZone")`, deliberately *not*
+  the backend's own `isValidTimeZone` approach (`auth.validation.ts` avoids that exact API
+  since it's missing some real-world aliases the backend still wants to accept) — this is a
+  different job, populating a *searchable pick-list*, where a comprehensive standard list is
+  the right tool; typing an alias directly would still validate server-side even if it isn't
+  in this browse list. `updateProfile`/`deleteAccount` (`features/auth/hooks.ts`) stay
+  toast-free and are handled at the page's own call sites instead — matching auth's existing
+  convention (already used by login/register), not the toast-inside-the-hook convention
+  every other feature (Tasks/Categories/Projects/Schedule) uses. That's a deliberate
+  exception, not a lapse: auth hooks get reused across pages that each want different
+  messaging (a login failure and a delete-account failure shouldn't necessarily read the
+  same way), unlike a Task/Project/Schedule mutation hook that's really only ever called
+  from one obvious page.
 
 - **Filter bars collapse behind one "Filters" `Popover` once there are more than ~2-3
   axes**, rather than showing every `Select` inline — four always-visible filters
