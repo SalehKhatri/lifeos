@@ -406,6 +406,21 @@ examples you'll find in most shadcn docs/tutorials online. Differences actually 
   filters (`__all__` sentinel showing literally) and the task form's category select (showing
   the category id). Build the map dynamically for data-driven options (e.g.
   `Object.fromEntries(categories.map(c => [c.id, c.name]))`).
+- **Create schemas want a field *omitted* for "empty"; update schemas want it explicitly
+  `null`.** Both the Tasks and Projects backend modules define nullable-looking optional
+  fields (`description`, `deadline`, `categoryId`, `projectId`) as `z.string().optional()` on
+  **create** (undefined/omitted only — `null` fails validation with Zod's raw "expected
+  string, received null") but `z.string().nullable().optional()` on **update** (`null` is
+  the correct way to explicitly clear a previously-set value). `TaskFormSheet` originally
+  built one shared payload object with a hardcoded `?? null` fallback for both branches —
+  correct for update, wrong for create, and surfaced as exactly that raw Zod message the
+  moment someone submitted a new task without a category or project. Fixed by building the
+  base values with `undefined` fallbacks (safe for create, since `JSON.stringify` drops
+  `undefined` keys entirely — see `lib/api-client.ts`) and only coercing to `null` in the
+  update branch specifically. `ProjectFormSheet` already did this correctly by accident (its
+  create/update branches were never merged into one shared object) — the general rule going
+  forward: never share one payload object across create and update for a resource with any
+  nullable-on-update field; branch it, or coalesce to `null` only inside the update path.
 
 ## Re-skinning later
 

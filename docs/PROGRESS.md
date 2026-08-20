@@ -587,3 +587,14 @@ Short record of decisions made and why, so you don't relitigate them later.
   fields on both Sheets now default to right now (computed fresh on open, not baked into the
   static `EMPTY_VALUES`) instead of empty — native `datetime-local` already includes a time
   picker as part of the browser's own control, no new component needed.
+- 2026-08-19 — Bug: creating a task without a category/project threw "Invalid input:
+  expected string, received null" (x2). Root cause: the backend's `createTaskSchema` defines
+  `categoryId`/`projectId` (and `description`/`deadline`) as `z.string().optional()` —
+  omit-only, `null` fails — while `updateTaskSchema` defines the same fields as
+  `.nullable().optional()`, where `null` is correct (explicitly clears the field).
+  `TaskFormSheet` built one shared payload with a hardcoded `?? null` fallback used for both
+  create and update; fixed by using `undefined` fallbacks in the base values (dropped
+  entirely by `JSON.stringify` — safe for create) and only coercing to `null` inside the
+  update branch. `ProjectFormSheet` already did this correctly (separate create/update
+  branches, never merged into one object). Rule recorded in `frontend/DESIGN.md`: never share
+  one payload object across create/update for a resource with any nullable-on-update field.

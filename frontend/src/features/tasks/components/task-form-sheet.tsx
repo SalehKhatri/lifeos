@@ -143,21 +143,43 @@ export function TaskFormSheet({ open, onOpenChange, task }: TaskFormSheetProps) 
   }, [open, task, reset]);
 
   async function onSubmit(values: TaskFormValues) {
-    const payload = {
-      title: values.title,
-      description: values.description?.trim() ? values.description : null,
-      priority: values.priority,
-      status: values.status,
-      estimatedDuration: values.estimatedDuration,
-      deadline: fromDatetimeLocalValue(values.deadline) ?? null,
-      categoryId: values.categoryId === NO_CATEGORY ? null : values.categoryId,
-      projectId: values.projectId === NO_PROJECT ? null : values.projectId,
-    };
+    // Left as `undefined` here (not `null`) — the backend's create schema
+    // only accepts these fields as optional (omit the key entirely), not
+    // nullable. Sending `null` on create failed validation with Zod's raw
+    // "expected string, received null" for whichever of these was empty.
+    // The update schema *is* nullable (explicit null clears a
+    // previously-set value), so only the update branch below coerces to
+    // null — same pattern ProjectFormSheet already used correctly.
+    const description = values.description?.trim() ? values.description : undefined;
+    const deadline = fromDatetimeLocalValue(values.deadline);
+    const categoryId = values.categoryId === NO_CATEGORY ? undefined : values.categoryId;
+    const projectId = values.projectId === NO_PROJECT ? undefined : values.projectId;
 
     if (isEditing && task) {
-      await updateTask.mutateAsync({ id: task.id, input: payload });
+      await updateTask.mutateAsync({
+        id: task.id,
+        input: {
+          title: values.title,
+          description: description ?? null,
+          priority: values.priority,
+          status: values.status,
+          estimatedDuration: values.estimatedDuration,
+          deadline: deadline ?? null,
+          categoryId: categoryId ?? null,
+          projectId: projectId ?? null,
+        },
+      });
     } else {
-      await createTask.mutateAsync(payload);
+      await createTask.mutateAsync({
+        title: values.title,
+        description,
+        priority: values.priority,
+        status: values.status,
+        estimatedDuration: values.estimatedDuration,
+        deadline,
+        categoryId,
+        projectId,
+      });
     }
     onOpenChange(false);
   }
