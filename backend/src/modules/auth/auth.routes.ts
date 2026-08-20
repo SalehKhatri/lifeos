@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../../shared/middleware/auth";
+import { loginRateLimiter, registerRateLimiter } from "../../shared/middleware/rateLimit";
 import {
   registerHandler,
   loginHandler,
@@ -11,8 +12,10 @@ import {
 
 export const authRouter = Router();
 
-authRouter.post("/register", registerHandler);
-authRouter.post("/login", loginHandler);
+// The only two routes reachable without already being authenticated —
+// see shared/middleware/rateLimit.ts for why these two specifically.
+authRouter.post("/register", registerRateLimiter, registerHandler);
+authRouter.post("/login", loginRateLimiter, loginHandler);
 authRouter.post("/logout", logoutHandler);
 authRouter.get("/me", requireAuth, meHandler);
 authRouter.patch("/me", requireAuth, updateProfileHandler);

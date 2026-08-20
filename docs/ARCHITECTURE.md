@@ -35,7 +35,7 @@ backend/src/
 │   ├── schedule/
 │   └── recommendations/      ← consumes tasks/projects/schedule via their index.ts
 ├── shared/
-│   ├── middleware/           (error handler, auth middleware)
+│   ├── middleware/           (error handler, auth middleware, rate limiting)
 │   ├── db/                   (Prisma client singleton)
 │   └── config/
 ├── app.ts

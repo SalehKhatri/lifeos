@@ -106,7 +106,6 @@ styling anything new.
 
 | Issue | Severity | Notes |
 | ----- | -------- | ----- |
-| No rate limiting on `/auth/login` and `/auth/register` | High | Nothing currently stops brute-forcing a password or hammering registration for account enumeration/spam. Not listed in `MVP_SPEC.md` Out of Scope — this is an unflagged gap, not a deliberate deferral. Cookie/JWT handling itself is otherwise solid (httpOnly, `sameSite: lax`, `secure` in production, 32+ char secret enforced). |
 | Postman sync pending for Schedule, Recommendations, Today | Low | The 2026-08-16 Postman sync covered Auth/Categories/Tasks/Projects only — Schedule (built same day, after that sync) and Recommendations/Today (built 2026-08-18) still need it. |
 
 ## Decisions Log
@@ -865,3 +864,21 @@ Short record of decisions made and why, so you don't relitigate them later.
   grids, the week calendar's internal scroll, Today's new greeting text) audited and left
   alone — already responsive or self-healing via normal text wrap, not superficially papered
   over. Full reasoning in `frontend/DESIGN.md`.
+- 2026-08-20 — Closed the "no rate limiting on /auth/login and /auth/register" gap from the
+  Known Issues table above (user-prioritized over the Postman-sync item). Added
+  `express-rate-limit` (the standard, boring choice — de facto standard for Express, no
+  architectural concept this app didn't already have) as `shared/middleware/rateLimit.ts`,
+  applied only to those two routes — every other route already sits behind `requireAuth`, so
+  these are the only ones reachable without authenticating first. Login: 10 requests / 15min
+  (generous for a mistyped password, tight enough to make brute-forcing a real one
+  impractical). Register: 5 requests / hour (registrations are rare in normal use; mainly
+  guards against scripted account-enumeration/spam). In-memory store (express-rate-limit's
+  default) — fine for this app's single-process deployment; would need a shared store (e.g.
+  Redis) only if it ever ran as more than one instance behind a load balancer. `trust proxy`
+  deliberately left unset — there's no deployment topology decided yet, and setting it too
+  permissively would let a client spoof its IP via `X-Forwarded-For` and defeat the limiter
+  entirely; revisit once real deployment infra exists. Response body matches the app-wide
+  `{ error: { message, code } }` shape even though express-rate-limit responds directly
+  rather than going through the centralized error handler. Smoke-tested end-to-end against
+  the running dev server (11th login attempt and 6th registration attempt both correctly
+  returned 429), test accounts cleaned up from the local DB afterward.
