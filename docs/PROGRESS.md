@@ -731,3 +731,12 @@ Short record of decisions made and why, so you don't relitigate them later.
   half of a spanning pair). Toast copy now counts distinct days touched, not raw block
   count, so a single overnight entry reads "for 2 days" correctly rather than misleadingly.
   Full reasoning in `frontend/DESIGN.md`.
+- 2026-08-19 — Follow-up bug caught same-day: the overnight split above was losing exactly
+  1 minute per commitment. `endTime` shared `startTime`'s 0-1439 range, capping the evening
+  half at 11:59 PM instead of true midnight (1440). User-reported: a week of overnight
+  shifts totaled 4 minutes short of what was entered. Fixed at the schema level
+  (`schedule.validation.ts`) — `startTime` stays 0-1439, `endTime` now allows up to 1440
+  (a block can legitimately end exactly at midnight; starting exactly at midnight-of-next-
+  day would be meaningless). Frontend split updated to use `endTime: MINUTES_PER_DAY`
+  (1440). Verified numerically before shipping: 9pm-2am now splits into exactly 3h00m +
+  2h00m = 5h, matching the entered range (previously 2h59m + 2h00m = 4h59m).

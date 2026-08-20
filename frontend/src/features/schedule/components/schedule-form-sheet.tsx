@@ -155,15 +155,24 @@ export function ScheduleFormSheet({ open, onOpenChange, block }: ScheduleFormShe
       // A day whose end time is earlier than its start time spans
       // midnight — realized as two real blocks (today's evening half,
       // tomorrow's early-morning half), since the data model has no way
-      // to represent "extends past this day" on a single row. Applied
-      // per selected day, so a multi-day overnight selection (e.g. a
-      // Mon-Fri night shift) splits each one correctly, including the
-      // day-of-week wraparound (Saturday's "tomorrow" is Sunday).
+      // to represent "extends past this day" on a single row. The evening
+      // half's endTime is MINUTES_PER_DAY (1440 = exactly midnight), not
+      // MINUTES_PER_DAY - 1 (11:59 PM) — the latter silently drops the
+      // last minute of the day on every split (user-reported: a week of
+      // overnight shifts came out ~4 minutes short of what was actually
+      // entered). The backend's endTime range was widened to 0-1440
+      // specifically to allow this (see schedule.validation.ts) — a
+      // startTime of 1440 would be meaningless (that's just minute 0 of
+      // the next day), but an endTime of 1440 genuinely means "reaches
+      // midnight." Applied per selected day, so a multi-day overnight
+      // selection (e.g. a Mon-Fri night shift) splits each one correctly,
+      // including the day-of-week wraparound (Saturday's "tomorrow" is
+      // Sunday).
       const inputs: ScheduleBlockInput[] = values.dayOfWeek.flatMap((d) => {
         const day = Number(d);
         if (end < start) {
           return [
-            { label, dayOfWeek: day, startTime: start, endTime: MINUTES_PER_DAY - 1 },
+            { label, dayOfWeek: day, startTime: start, endTime: MINUTES_PER_DAY },
             { label, dayOfWeek: (day + 1) % 7, startTime: 0, endTime: end },
           ];
         }

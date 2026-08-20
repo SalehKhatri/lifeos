@@ -352,7 +352,7 @@ reinventing per component:
   model (which would also mean changing the availability calc and Today's commitments
   query to understand a block that "continues from yesterday"), the **create** form now
   treats `endTime < startTime` as "spans midnight" and auto-splits it into two ordinary
-  same-day blocks (today's evening half ending at `MINUTES_PER_DAY - 1`, tomorrow's
+  same-day blocks (today's evening half ending at `MINUTES_PER_DAY`, tomorrow's
   early-morning half starting at 0) — reusing the exact multi-day batch-create machinery
   already built for Mon-Fri-style selections (`useCreateScheduleBlocks`). Applied per
   selected day, including the day-of-week wraparound (`(day + 1) % 7`, so Saturday's
@@ -368,6 +368,21 @@ reinventing per component:
   single overnight entry correctly reads "Created "X" for 2 days," not "for 2 days" meaning
   something wrong (the shift genuinely touches two calendar days) — same wording, same
   reasoning as an actual multi-day selection.
+- **Follow-up bug, caught the same day: the split above was losing exactly 1 minute per
+  overnight commitment.** `endTime`'s valid range was 0-1439 (shared with `startTime`), so
+  the evening half's end got capped at 1439 (11:59 PM) — one minute short of true midnight
+  (minute 1440). User-reported: a week of overnight shifts totaled 4 minutes short of what
+  was actually entered (roughly 1 minute × number of overnight splits that week). Fixed at
+  the schema level (`schedule.validation.ts`): `startTime` and `endTime` are no longer the
+  same range — `startTime` stays 0-1439 (starting exactly at midnight-of-next-day would be
+  meaningless, that's just minute 0 of that day), but `endTime` now allows up to 1440,
+  since a block can legitimately *end* exactly at midnight. The frontend's split now uses
+  `endTime: MINUTES_PER_DAY` (1440) for the evening half instead of `MINUTES_PER_DAY - 1`.
+  Verified numerically before shipping: 9pm-2am now splits into an exact 3h00m + 2h00m = 5h
+  total, matching the entered range precisely (previously 2h59m + 2h00m = 4h59m). No other
+  code needed to change — `formatClockTime(1440)` already renders as "12:00 AM" (the
+  correct display for "reaches midnight" as an end time), and every duration calculation is
+  plain subtraction that works the same regardless of the specific numbers involved.
 - **Today (`app/(app)/today/`)** is where two conventions written earlier in this document
   finally get used for the first time, rather than new ones being invented: `.animate-pulse-glow`
   (earmarked back when it was added — "the handful of elements that should feel alive at

@@ -1,14 +1,27 @@
 import { z } from "zod";
 
 const dayOfWeekSchema = z.number().int().min(0, "Must be 0-6 (0=Sunday)").max(6, "Must be 0-6 (0=Sunday)");
-const timeSchema = z.number().int().min(0).max(1439, "Must be minutes since midnight (0-1439)");
+// startTime and endTime are NOT the same range. A block can start anywhere
+// from minute 0 up to minute 1439 (the last minute of the day) — but it can
+// legitimately *end* exactly at midnight, i.e. minute 1440, one past the
+// last valid start. Sharing one 0-1439 schema between both fields meant
+// "ends at midnight" had no valid representation — the frontend's overnight
+// -split feature was capping the evening half's endTime at 1439 (11:59 PM)
+// instead of 1440 (true midnight), silently losing exactly 1 minute per
+// split (user-reported: 4 minutes short across a week with ~4 splits).
+const startTimeSchema = z.number().int().min(0).max(1439, "Must be minutes since midnight (0-1439)");
+const endTimeSchema = z
+  .number()
+  .int()
+  .min(0)
+  .max(1440, "Must be minutes since midnight (0-1440, where 1440 = midnight)");
 const labelSchema = z.string().trim().min(1, "Label cannot be empty").max(100);
 
 export const createScheduleBlockSchema = z
   .object({
     dayOfWeek: dayOfWeekSchema,
-    startTime: timeSchema,
-    endTime: timeSchema,
+    startTime: startTimeSchema,
+    endTime: endTimeSchema,
     label: labelSchema,
   })
   .refine((data) => data.startTime < data.endTime, {
@@ -22,8 +35,8 @@ export const createScheduleBlockSchema = z
 export const updateScheduleBlockSchema = z
   .object({
     dayOfWeek: dayOfWeekSchema.optional(),
-    startTime: timeSchema.optional(),
-    endTime: timeSchema.optional(),
+    startTime: startTimeSchema.optional(),
+    endTime: endTimeSchema.optional(),
     label: labelSchema.optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
