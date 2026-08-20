@@ -129,7 +129,11 @@ export function TaskList({ tasks, onEdit }: TaskListProps) {
         className="space-y-2"
       >
         {tasks.map((task) => (
-          <motion.div key={task.id} variants={fadeInUp}>
+          // `layout` animates the FLIP transition when this row's position
+          // changes between renders (e.g. a sort re-order) — without it,
+          // React still reorders the DOM correctly, it just snaps instantly,
+          // which reads as "did that even do anything?" on a short list.
+          <motion.div key={task.id} layout variants={fadeInUp}>
             <TaskCard
               task={task}
               onEdit={() => onEdit(task)}

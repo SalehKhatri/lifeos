@@ -575,3 +575,15 @@ Short record of decisions made and why, so you don't relitigate them later.
   the toolbar this pass just decluttered. Added `n` (new project) to `/projects` too, for
   parity with `/tasks` — "master control" is a standing app-wide principle, not opt-in per
   page. Full reasoning in `frontend/DESIGN.md`.
+- 2026-08-19 — Three user-reported issues fixed together: (1) sort cycling changed the
+  dropdown value but the list looked unchanged — code review found the sort logic itself
+  correct, so added `layout` to each task row's `motion.div` for an animated re-order (makes
+  any position change visually unambiguous, doesn't rely on the list being long enough to
+  notice an instant DOM reorder). (2) Vague validation messages on Task/Project sheets —
+  concretely, clearing the duration number input produced Zod's raw default ("Invalid input:
+  expected number, received NaN") since `estimatedDuration` had no custom base-type message;
+  also added missing `.max()` messages for title/name/description. Rule now: every schema
+  constraint gets an explicit plain-language message, never Zod's default. (3) Deadline
+  fields on both Sheets now default to right now (computed fresh on open, not baked into the
+  static `EMPTY_VALUES`) instead of empty — native `datetime-local` already includes a time
+  picker as part of the browser's own control, no new component needed.

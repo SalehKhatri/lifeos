@@ -28,8 +28,12 @@ import { toDatetimeLocalValue, fromDatetimeLocalValue } from "@/lib/datetime";
 import type { Project } from "@/types";
 
 const projectFormSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(200),
-  description: z.string().max(2000).optional(),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Name is required")
+    .max(200, "Name must be 200 characters or less"),
+  description: z.string().max(2000, "Description must be 2000 characters or less").optional(),
   status: z.enum(["ACTIVE", "ON_HOLD", "COMPLETED", "ARCHIVED"]),
   deadline: z.string().optional(),
 });
@@ -87,7 +91,10 @@ export function ProjectFormSheet({ open, onOpenChange, project }: ProjectFormShe
             status: project.status,
             deadline: toDatetimeLocalValue(project.deadline),
           }
-        : EMPTY_VALUES,
+        // Deadline defaults to right now, not empty — same reasoning as
+        // the task form: starting from "now" (still fully editable) beats
+        // picking both a date and a time from a blank field every time.
+        : { ...EMPTY_VALUES, deadline: toDatetimeLocalValue(new Date().toISOString()) },
     );
   }, [open, project, reset]);
 

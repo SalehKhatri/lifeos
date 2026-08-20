@@ -321,6 +321,33 @@ reinventing per component:
   dropdown trigger would undercut the exact "toolbar looks busy" complaint this pass was
   fixing. `n` was also added to `/projects` for parity — "master control" is a standing
   app-wide principle, not something to reintroduce per-page only when asked.
+- **Sort re-order now animates (`layout` prop on each task row's `motion.div`).** User
+  report: cycling sort changed the dropdown's value but the list looked unchanged. Code
+  review found the sort logic itself correct (comparators, `useMemo` deps, prop wiring all
+  checked out) — the real issue was almost certainly that React *does* reorder the DOM
+  correctly, but does it instantly with no transition, which is easy to miss on a short list.
+  Adding `layout` gives Framer Motion's FLIP animation on any position change, making a
+  re-order visually unambiguous regardless of list length — a good default for any list that
+  can reorder itself, not just this one.
+- **Form validation messages should never surface Zod's raw default text.** Two forms
+  (`TaskFormSheet`, `ProjectFormSheet`) had fields with no custom `error`/message — `title`/
+  `name`/`description`'s `.max()` checks, and `estimatedDuration`'s base type check. The
+  latter was the concrete bug: clearing the duration number input produces `NaN` (not
+  `undefined`), and Zod's raw default for that is something like "Invalid input: expected
+  number, received NaN" — exactly the kind of message a user shouldn't ever see. Fixed by
+  passing `{ error: "..." }` to `z.number()` for the base check, and a plain string second
+  argument to every `.min()`/`.max()` (Zod v4 syntax — the shorthand string arg is sugar for
+  `{ error }`). Rule going forward: every constraint on every form schema gets an explicit,
+  plain-language message — never rely on Zod's default for anything user-facing.
+- **Deadline fields default to right now, not empty**, on create (`TaskFormSheet`,
+  `ProjectFormSheet`) — computed fresh inside the `open`/`task` reset effect (`new
+  Date().toISOString()` through the existing `toDatetimeLocalValue` helper), not baked into
+  the static `EMPTY_VALUES` constant, so it's actually "now" every time the sheet opens, not
+  frozen to whenever the module first loaded. Picking a deadline from a genuinely blank field
+  means setting both date and time from scratch every time; starting from "now" (still fully
+  editable, one click away from being changed to whatever the real deadline is) is a better
+  anchor. Native `<input type="datetime-local">` already includes a time picker as part of
+  the browser's own control — no separate time-picker component needed for this.
 
 ## Radius & type
 

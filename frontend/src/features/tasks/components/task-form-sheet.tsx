@@ -31,16 +31,27 @@ import { toDatetimeLocalValue, fromDatetimeLocalValue } from "@/lib/datetime";
 import type { Task } from "@/types";
 
 const taskFormSchema = z.object({
-  title: z.string().trim().min(1, "Title is required").max(200),
-  description: z.string().max(2000).optional(),
+  title: z
+    .string()
+    .trim()
+    .min(1, "Title is required")
+    .max(200, "Title must be 200 characters or less"),
+  description: z.string().max(2000, "Description must be 2000 characters or less").optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]),
   status: z.enum(["TODO", "IN_PROGRESS", "DONE"]),
   // Plain z.number(), not z.coerce.number() — coerce gives the schema a
   // different input vs output type (string in, number out), which trips up
   // useForm<T>'s generic (T is the output shape). register(..., {
   // valueAsNumber: true }) below does the DOM string->number conversion
-  // instead, keeping the type `number` on both sides.
-  estimatedDuration: z.number().int().positive("Must be a positive number of minutes"),
+  // instead, keeping the type `number` on both sides. Clearing the number
+  // input produces NaN, not undefined — without the `error` option below,
+  // that surfaced Zod's raw default message ("Invalid input: expected
+  // number, received NaN"), which is exactly the kind of vague message
+  // this pass was about fixing.
+  estimatedDuration: z
+    .number({ error: "Enter a duration in minutes" })
+    .int("Duration must be a whole number of minutes")
+    .positive("Duration must be greater than 0"),
   deadline: z.string().optional(),
   categoryId: z.string().optional(),
   projectId: z.string().optional(),
@@ -120,7 +131,14 @@ export function TaskFormSheet({ open, onOpenChange, task }: TaskFormSheetProps) 
             categoryId: task.categoryId ?? NO_CATEGORY,
             projectId: task.projectId ?? NO_PROJECT,
           }
-        : EMPTY_VALUES,
+        // Deadline defaults to right now, not empty — picking a deadline
+        // from a genuinely blank field means setting both the date and the
+        // time from scratch every time; starting from "now" (still fully
+        // editable) is a better anchor to adjust from. Computed fresh here
+        // (not baked into the static EMPTY_VALUES constant), so it's
+        // actually "now" every time the sheet opens, not frozen to
+        // whenever the module first loaded.
+        : { ...EMPTY_VALUES, deadline: toDatetimeLocalValue(new Date().toISOString()) },
     );
   }, [open, task, reset]);
 
