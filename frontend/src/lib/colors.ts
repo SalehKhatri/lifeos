@@ -34,3 +34,21 @@ export function randomCategoryColor(): string {
   const lightness = randomInRange(LIGHTNESS_RANGE);
   return hslToHex(hue, saturation, lightness);
 }
+
+// Deterministic per-label color, not random — the same label always
+// resolves to the same color across renders/reloads, without needing an
+// actual color field to persist anywhere. Used for Schedule commitments,
+// which have no color of their own but still benefit from being visually
+// distinguishable ("Work" always reads as the same color, "Gym" another).
+// Saturation/lightness fixed (not randomized) rather than ranged, purely so
+// two different labels that happen to hash to a similar hue don't also
+// drift apart in vividness — keeps the whole set visually consistent.
+export function hashLabelToColor(label: string): string {
+  let hash = 0;
+  for (let i = 0; i < label.length; i++) {
+    hash = (hash << 5) - hash + label.charCodeAt(i);
+    hash |= 0; // force a 32-bit int, keeps this stable across runs
+  }
+  const hue = Math.abs(hash) % 360;
+  return hslToHex(hue, 75, 65);
+}

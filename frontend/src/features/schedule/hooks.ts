@@ -23,15 +23,37 @@ export function useScheduleBlocks(filters: ScheduleFilters = {}) {
   });
 }
 
-export function useCreateScheduleBlock() {
+// Takes an array, not a single input — the create form lets you pick
+// multiple days at once (e.g. "Work" for Mon-Fri in one action, rather than
+// creating the identical block 5 separate times). A single day is just an
+// array of length 1, so there's one hook for both cases, not two.
+//
+// Promise.allSettled, not Promise.all: with several independent creates in
+// flight, one failing (rare — a network blip, since the payload's validity
+// doesn't depend on which day it's for) shouldn't hide that the others
+// actually succeeded. Reports a single consolidated toast either way,
+// rather than one per day.
+export function useCreateScheduleBlocks() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: ScheduleBlockInput) => scheduleApi.createScheduleBlock(input),
-    onSuccess: (block) => {
-      queryClient.invalidateQueries({ queryKey: scheduleKeys.all });
-      toast.success(`Created "${block.label}"`);
+    mutationFn: (inputs: ScheduleBlockInput[]) =>
+      Promise.allSettled(inputs.map((input) => scheduleApi.createScheduleBlock(input))),
+    onSuccess: (results, inputs) => {
+      const succeeded = results.filter((r) => r.status === "fulfilled").length;
+      const failed = results.length - succeeded;
+      const label = inputs[0]?.label ?? "commitment";
+
+      if (succeeded > 0) {
+        queryClient.invalidateQueries({ queryKey: scheduleKeys.all });
+      }
+      if (failed === 0) {
+        toast.success(succeeded === 1 ? `Created "${label}"` : `Created "${label}" for ${succeeded} days`);
+      } else if (succeeded > 0) {
+        toast.error(`Created "${label}" for ${succeeded} day(s), ${failed} failed`);
+      } else {
+        toast.error(`Couldn't create "${label}"`);
+      }
     },
-    onError: (err, input) => toast.error(errorMessage(err, `Couldn't create "${input.label}"`)),
   });
 }
 

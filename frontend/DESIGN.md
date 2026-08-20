@@ -302,6 +302,38 @@ reinventing per component:
   recurring commitment), computed fresh on open like Task/Project deadlines defaulting to
   "now". No nullable-on-update fields on `ScheduleBlock`, so the create/update payload split
   documented above (Tasks/Projects) isn't needed here — one shared payload object is fine.
+- **Schedule productivity pass (2026-08-19)**, four additions after "we can work a bit more
+  on schedule" — all real information or real friction reduction, none of it decoration:
+  - **Multi-day quick-create.** The Day field is a row of toggle buttons, not a `Select` —
+    create mode allows selecting several at once (e.g. "Work" for Mon-Fri in one action,
+    instead of creating the identical block 5 times); edit mode still behaves as a
+    single-select (a click replaces the selection) since it operates on one existing block.
+    Backed by `useCreateScheduleBlocks` (plural — takes an array, always, even for a single
+    day), which fires the creates via `Promise.allSettled` and reports one consolidated
+    toast rather than one per day. `allSettled`, not `all`: if one create in the batch fails
+    (rare — the payload's validity doesn't depend on which day it's for), the ones that
+    succeeded shouldn't be hidden by treating the whole batch as failed.
+  - **Overlap warning** (`features/schedule/overlap.ts`) — purely client-side, since the
+    backend deliberately allows overlapping blocks on the same day (`docs/MVP_SPEC.md` #4 —
+    left to the recommendation engine's interval merging, not Schedule's job at write time).
+    O(n²) pairwise interval check per day, not sort-then-check-adjacent-pairs: a long block
+    can fully contain a short one with an unrelated third block in between after sorting by
+    start time, which an adjacent-only check would miss. Small per-day block counts make
+    O(n²) free. Surfaced as an amber "Overlap" tag on the day header plus a warning icon on
+    each affected row — a warning, not a validation error, so it never blocks saving.
+  - **Per-block color coding** (`lib/colors.ts`'s `hashLabelToColor`) — deterministic, not
+    random, unlike `randomCategoryColor`: the same label always resolves to the same color
+    across renders/reloads, without needing an actual color field on `ScheduleBlock` (it has
+    none). Same saturation/lightness band as the app's other generated colors, but fixed
+    rather than ranged, so two labels that happen to hash near the same hue don't also drift
+    apart in vividness.
+  - **Daily timeline bar** — a compact 24h strip per day showing each block as a proportional
+    colored segment (same `hashLabelToColor` as the row list, so the timeline and the
+    detailed rows read as one system, not two independent colorings of the same data), plus a
+    thin marker for the current time on today's strip. Lets you see a day's actual shape
+    ("morning free, afternoon packed") at a glance instead of reading every time range as
+    text — the whole reason this page groups by day in the first place, taken one step
+    further.
 
 - **Filter bars collapse behind one "Filters" `Popover` once there are more than ~2-3
   axes**, rather than showing every `Select` inline — four always-visible filters

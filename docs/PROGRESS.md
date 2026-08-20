@@ -633,3 +633,15 @@ Short record of decisions made and why, so you don't relitigate them later.
   mid-build. Made the exclusion explicit in `MVP_SPEC.md`'s Out of Scope list (previously
   only implied by §4's "only" wording) so it reads as a documented decision, not something
   that got missed.
+- 2026-08-19 — Schedule productivity pass, four additions picked by user from a proposed
+  list: (1) multi-day quick-create — the Day field is now toggle buttons, not a `Select`;
+  create mode allows selecting several days at once (e.g. "Work" Mon-Fri in one action),
+  backed by a new `useCreateScheduleBlocks` (plural, `Promise.allSettled`, one consolidated
+  toast for the whole batch). (2) client-side overlap warning
+  (`features/schedule/overlap.ts`) — the backend deliberately allows overlapping blocks, so
+  this is a warning (amber tag + icon), never a save-blocking validation. (3) deterministic
+  per-label color coding (`lib/colors.ts`'s `hashLabelToColor`) — same label always gets the
+  same color, no color field needed on `ScheduleBlock`. (4) a compact daily timeline bar
+  showing each day's blocks as proportional colored segments plus a current-time marker on
+  today — see the day's shape at a glance instead of reading every time range as text. Full
+  reasoning in `frontend/DESIGN.md`.

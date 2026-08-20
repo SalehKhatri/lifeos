@@ -14,19 +14,14 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { FormField } from "@/components/form-field";
-import { useCreateScheduleBlock, useUpdateScheduleBlock } from "@/features/schedule/hooks";
-import { DAY_LABELS, minutesToTimeInput, timeInputToMinutes } from "@/lib/time";
+import { cn } from "@/lib/utils";
+import { useCreateScheduleBlocks, useUpdateScheduleBlock } from "@/features/schedule/hooks";
+import { minutesToTimeInput, timeInputToMinutes } from "@/lib/time";
 import type { ScheduleBlock } from "@/types";
 
 const DAY_VALUES = ["0", "1", "2", "3", "4", "5", "6"] as const;
+const DAY_SHORT = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
 const scheduleFormSchema = z
   .object({
@@ -35,7 +30,10 @@ const scheduleFormSchema = z
       .trim()
       .min(1, "Label is required")
       .max(100, "Label must be 100 characters or less"),
-    dayOfWeek: z.enum(DAY_VALUES),
+    // An array, not a single value — lets create mode pick multiple days at
+    // once (e.g. "Work" for Mon-Fri in one action). Edit mode still only
+    // ever has one entry, since it operates on a single existing block.
+    dayOfWeek: z.array(z.enum(DAY_VALUES)).min(1, "Select at least one day"),
     startTime: z.string().min(1, "Start time is required"),
     endTime: z.string().min(1, "End time is required"),
   })
@@ -52,12 +50,6 @@ const scheduleFormSchema = z
 
 type ScheduleFormValues = z.infer<typeof scheduleFormSchema>;
 
-// Select.Value's items map — see frontend/DESIGN.md's gotcha (a pre-filled
-// value needs this; the popup being opened first can't be relied on).
-const DAY_ITEMS: Record<string, string> = Object.fromEntries(
-  DAY_VALUES.map((v) => [v, DAY_LABELS[Number(v)]]),
-);
-
 // A sensible non-blank starting point, computed fresh every time the sheet
 // opens for create (not baked into a static constant) — same reasoning as
 // Task/Project deadlines defaulting to "now". Rounds to the next full hour
@@ -70,7 +62,7 @@ function defaultValuesForNow(): ScheduleFormValues {
   const end = (start + 60) % 1440;
   return {
     label: "",
-    dayOfWeek: String(now.getDay()) as ScheduleFormValues["dayOfWeek"],
+    dayOfWeek: [String(now.getDay()) as ScheduleFormValues["dayOfWeek"][number]],
     startTime: minutesToTimeInput(start),
     endTime: minutesToTimeInput(end),
   };
@@ -83,7 +75,7 @@ interface ScheduleFormSheetProps {
 }
 
 export function ScheduleFormSheet({ open, onOpenChange, block }: ScheduleFormSheetProps) {
-  const createBlock = useCreateScheduleBlock();
+  const createBlocks = useCreateScheduleBlocks();
   const updateBlock = useUpdateScheduleBlock();
   const isEditing = Boolean(block);
 
@@ -106,7 +98,7 @@ export function ScheduleFormSheet({ open, onOpenChange, block }: ScheduleFormShe
       block
         ? {
             label: block.label,
-            dayOfWeek: String(block.dayOfWeek) as ScheduleFormValues["dayOfWeek"],
+            dayOfWeek: [String(block.dayOfWeek) as ScheduleFormValues["dayOfWeek"][number]],
             startTime: minutesToTimeInput(block.startTime),
             endTime: minutesToTimeInput(block.endTime),
           }
@@ -118,22 +110,26 @@ export function ScheduleFormSheet({ open, onOpenChange, block }: ScheduleFormShe
     // Every field required by the backend on both create and update paths
     // (once present) — no nullable-field split to worry about here, unlike
     // Tasks/Projects (see frontend/DESIGN.md).
-    const payload = {
+    const base = {
       label: values.label,
-      dayOfWeek: Number(values.dayOfWeek),
       startTime: timeInputToMinutes(values.startTime)!,
       endTime: timeInputToMinutes(values.endTime)!,
     };
 
     if (isEditing && block) {
-      await updateBlock.mutateAsync({ id: block.id, input: payload });
+      await updateBlock.mutateAsync({
+        id: block.id,
+        input: { ...base, dayOfWeek: Number(values.dayOfWeek[0]) },
+      });
     } else {
-      await createBlock.mutateAsync(payload);
+      await createBlocks.mutateAsync(
+        values.dayOfWeek.map((d) => ({ ...base, dayOfWeek: Number(d) })),
+      );
     }
     onOpenChange(false);
   }
 
-  const isPending = createBlock.isPending || updateBlock.isPending;
+  const isPending = createBlocks.isPending || updateBlock.isPending;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -143,7 +139,9 @@ export function ScheduleFormSheet({ open, onOpenChange, block }: ScheduleFormShe
             {isEditing ? "Edit commitment" : "New commitment"}
           </SheetTitle>
           <SheetDescription>
-            {isEditing ? "Update the details below." : "Block off recurring time on your week."}
+            {isEditing
+              ? "Update the details below."
+              : "Block off recurring time on your week — pick more than one day if it repeats."}
           </SheetDescription>
         </SheetHeader>
 
@@ -159,23 +157,49 @@ export function ScheduleFormSheet({ open, onOpenChange, block }: ScheduleFormShe
               <Input id="label" autoFocus placeholder="e.g. Gym, Work, Class" {...register("label")} />
             </FormField>
 
-            <FormField label="Day" htmlFor="dayOfWeek" error={errors.dayOfWeek?.message}>
+            <FormField
+              label={isEditing ? "Day" : "Days"}
+              htmlFor="dayOfWeek"
+              error={errors.dayOfWeek?.message}
+            >
               <Controller
                 control={control}
                 name="dayOfWeek"
                 render={({ field }) => (
-                  <Select items={DAY_ITEMS} value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger id="dayOfWeek" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DAY_VALUES.map((v) => (
-                        <SelectItem key={v} value={v}>
-                          {DAY_LABELS[Number(v)]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div id="dayOfWeek" className="flex gap-1">
+                    {DAY_VALUES.map((v, i) => {
+                      const active = field.value.includes(v);
+                      return (
+                        <button
+                          key={v}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => {
+                            // Editing operates on one existing block — a
+                            // click replaces the selection rather than
+                            // toggling it. Creating allows multiple.
+                            if (isEditing) {
+                              field.onChange([v]);
+                            } else {
+                              field.onChange(
+                                active
+                                  ? field.value.filter((d) => d !== v)
+                                  : [...field.value, v],
+                              );
+                            }
+                          }}
+                          className={cn(
+                            "flex-1 rounded-md border py-1.5 text-xs font-medium transition-colors",
+                            active
+                              ? "border-accent-cyan bg-accent-cyan/15 text-accent-cyan"
+                              : "border-input text-muted-foreground hover:border-accent-cyan/40",
+                          )}
+                        >
+                          {DAY_SHORT[i]}
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
               />
             </FormField>
@@ -193,7 +217,11 @@ export function ScheduleFormSheet({ open, onOpenChange, block }: ScheduleFormShe
 
           <SheetFooter>
             <Button type="submit" disabled={isPending}>
-              {isPending ? "Saving…" : isEditing ? "Save changes" : "Create commitment"}
+              {isPending
+                ? "Saving…"
+                : isEditing
+                  ? "Save changes"
+                  : "Create commitment"}
             </Button>
           </SheetFooter>
         </form>
