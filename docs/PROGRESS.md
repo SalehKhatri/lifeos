@@ -460,7 +460,19 @@ Short record of decisions made and why, so you don't relitigate them later.
   checked) were compounding to ~0.3 opacity. (2) it was a one-way action
   from the list (disabled once done, no undo short of opening the edit
   form) — a mis-click had no easy recovery. Fixed both together: the
-  checkbox is a real toggle now (unchecking reverts the task to `TODO` via
-  the same `useUpdateTask` mutation the edit form already uses, no new
-  endpoint/hook needed) and always renders at full opacity — only the
-  title/metadata content wrapper dims when done, not the checkbox itself.
+  checkbox is a real toggle now (unchecking reverts the task to `TODO`) and
+  always renders at full opacity — only the title/metadata content wrapper
+  dims when done, not the checkbox itself. (Reopen initially reused the
+  generic `useUpdateTask` mutation for this — see the next entry for why
+  that was wrong and got its own hook instead.)
+- 2026-08-19 — Toast copy overhaul (Tasks + Categories), user-reported: reopening a task
+  showed a success toast ("Task updated") while completing it showed none — traced to reopen
+  reusing the generic `useUpdateTask` mutation instead of its own hook. Fixed by giving reopen
+  its own `useReopenTask` hook that mirrors `useCompleteTask` (no success toast, error only,
+  symmetric on both directions of the checkbox toggle) instead of piggybacking on the edit
+  form's update mutation. Separately, rewrote every task/category toast (create/update/delete)
+  from generic phrases ("Task updated successfully") to past-tense action + quoted identifying
+  name (`Created "Buy groceries"`, `Deleted category "Work"`) — mutation hooks now take the
+  full entity instead of a bare id so the name is available for the message. Convention
+  recorded in `frontend/DESIGN.md` to apply to every future mutation hook
+  (Projects/Schedule/Settings), not just these two.

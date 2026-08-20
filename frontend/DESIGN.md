@@ -92,6 +92,23 @@ reinventing per component:
   (height+opacity via `AnimatePresence`) with a small `CircleAlert` icon — never a bare
   `<p className="text-destructive">` that just pops into existence. These stay inline,
   right under their field — small, expected, don't meaningfully shift layout.
+- **Toast copy: past-tense action + the identifying name, quoted — never a generic phrase
+  like "Task updated successfully."** `Created "Buy groceries"`, `Deleted category "Work"`,
+  `Couldn't delete "Buy groceries"` — a toast should be readable on its own, in a list of
+  several, without needing to remember what you just clicked. Error toasts follow the same
+  shape as a fallback (`Couldn't <verb> "<name>"`), only used when the backend didn't already
+  return a specific message (`err instanceof ApiError ? err.message : fallback` — the backend's
+  own message wins when there is one). Mutation hooks take the full entity (`Task`/`Category`),
+  not just an id, specifically so the identifying name is available for this — see
+  `features/tasks/hooks.ts`/`features/categories/hooks.ts`. Apply this to every new mutation
+  hook (Projects/Schedule/Settings in later phases), not just Tasks/Categories.
+- **The task-complete checkbox's two directions (`useCompleteTask`/`useReopenTask`) are
+  deliberately symmetric: neither shows a success toast**, only errors — a frequent, low-stakes
+  checkbox toggle doesn't need a toast in either direction, and showing one only on the
+  "undo" side (which is what happened when reopen briefly reused the generic `useUpdateTask`
+  mutation) reads as an inconsistent bug, not a feature. If a future toggle-style action needs
+  the same treatment, give it its own dedicated hook rather than piggybacking on a generic
+  update mutation that has its own (correct, wanted) toast.
 - **API-level errors are a toast (`sonner`'s `toast.error(...)`), not an inline `Alert`.**
   Tried an animated inline `Alert` banner first (shadcn's own "auth screen" recipe
   suggests it) — in practice, an API error growing the Card taller on submit is a bad

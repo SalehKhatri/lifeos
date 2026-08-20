@@ -70,7 +70,7 @@ export function CategoryManager() {
                 type="button"
                 variant="ghost"
                 size="icon-xs"
-                onClick={() => deleteCategory.mutate(category.id)}
+                onClick={() => deleteCategory.mutate(category)}
                 aria-label={`Delete ${category.name}`}
               >
                 <Trash2 className="text-destructive" />

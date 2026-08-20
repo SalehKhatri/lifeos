@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { staggerContainer, fadeInUp } from "@/lib/motion";
-import { useCompleteTask, useDeleteTask, useUpdateTask } from "@/features/tasks/hooks";
+import { useCompleteTask, useDeleteTask, useReopenTask } from "@/features/tasks/hooks";
 import type { Task, TaskPriority } from "@/types";
 
 // Priority reads as a system-level HUD signal (a colored edge + a small
@@ -60,7 +60,7 @@ interface TaskListProps {
 
 export function TaskList({ tasks, onEdit }: TaskListProps) {
   const completeTask = useCompleteTask();
-  const updateTask = useUpdateTask();
+  const reopenTask = useReopenTask();
   const deleteTask = useDeleteTask();
   // A single shared AlertDialog, not one per row, controlled by which task
   // (if any) is pending deletion — deliberately NOT an AlertDialogTrigger
@@ -91,10 +91,8 @@ export function TaskList({ tasks, onEdit }: TaskListProps) {
               task={task}
               onEdit={() => onEdit(task)}
               onDelete={() => setDeleteTarget(task)}
-              onComplete={() => completeTask.mutate(task.id)}
-              onUncomplete={() =>
-                updateTask.mutate({ id: task.id, input: { status: "TODO" } })
-              }
+              onComplete={() => completeTask.mutate(task)}
+              onUncomplete={() => reopenTask.mutate(task)}
             />
           </motion.div>
         ))}
@@ -113,7 +111,7 @@ export function TaskList({ tasks, onEdit }: TaskListProps) {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (deleteTarget) deleteTask.mutate(deleteTarget.id);
+                if (deleteTarget) deleteTask.mutate(deleteTarget);
                 setDeleteTarget(null);
               }}
             >
