@@ -476,3 +476,13 @@ Short record of decisions made and why, so you don't relitigate them later.
   full entity instead of a bare id so the name is available for the message. Convention
   recorded in `frontend/DESIGN.md` to apply to every future mutation hook
   (Projects/Schedule/Settings), not just these two.
+- 2026-08-19 — `CategoryManager` gained rename + recolor for own categories
+  (backend already supported `PATCH /categories/:id`; the frontend just
+  never exposed it beyond create/delete). Color is a native
+  `<input type="color">` per row that saves immediately on change — the
+  picker closing is already its own "commit" gesture, no separate save
+  step needed. Name is inline-editable (Pencil to enter edit mode, swaps
+  the row's icons to Check/X to save/cancel, Enter/Escape do the same) —
+  one row editable at a time, kept in local `editingId` state rather than
+  per-row state, since only one edit can realistically be in flight in a
+  popover this small.
