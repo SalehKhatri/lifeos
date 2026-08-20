@@ -288,6 +288,20 @@ reinventing per component:
   pattern as the `?new=1` bridge). Deliberately *not* stripped from the URL afterwards,
   unlike `?new=1` — a filter is worth keeping bookmarkable/shareable/refresh-safe, unlike a
   one-shot "open this sheet" signal.
+- **Schedule (`features/schedule/`)** reuses the same conventions (toast copy, `Select.Value`
+  items map, `?new=1` bridge) but a genuinely different layout: **grouped by day, all 7 days
+  always rendered**, not a list or grid you filter down — the whole point (per the original
+  plan) is seeing the whole week's shape at a glance, and an empty day ("fully free") is real
+  information worth showing, not a state worth hiding. Today's section gets a small accent-cyan
+  label + "Today" tag (the one thing on this page that's objectively special, so it's the one
+  thing that gets a color treatment — same "glow/color reserved for what matters" rule as
+  everywhere else). Time fields are native `<input type="time">` (already includes a time
+  picker as part of the browser's own control) converted to/from the backend's
+  minutes-since-midnight via `lib/time.ts` — a new commitment defaults to the *next full hour*
+  on today's day-of-week (not the exact current minute — "3:47 PM–4:47 PM" reads oddly for a
+  recurring commitment), computed fresh on open like Task/Project deadlines defaulting to
+  "now". No nullable-on-update fields on `ScheduleBlock`, so the create/update payload split
+  documented above (Tasks/Projects) isn't needed here — one shared payload object is fine.
 
 - **Filter bars collapse behind one "Filters" `Popover` once there are more than ~2-3
   axes**, rather than showing every `Select` inline — four always-visible filters

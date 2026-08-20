@@ -88,6 +88,13 @@ const COMMANDS: PaletteCommand[] = [
     action: (router) => router.push("/projects?new=1"),
   },
   {
+    label: "New Commitment",
+    icon: Plus,
+    group: "Actions",
+    // Same ?new=1 bridge — see app/(app)/schedule/page.tsx.
+    action: (router) => router.push("/schedule?new=1"),
+  },
+  {
     label: "Log out",
     icon: LogOut,
     group: "Session",

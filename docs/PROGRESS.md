@@ -97,7 +97,7 @@ styling anything new.
 | Command palette (Cmd/Ctrl+K)          | ✅     | brought into v1 scope deliberately (see `docs/MVP_SPEC.md` §7) — data-driven `COMMANDS` array, digit-key (1-9) instant-select, footer shortcut hints |
 | Tasks + Categories page                | ✅     | Phase 2 — filters, list, create/edit Sheet, delete, inline category manager |
 | Projects page                          | ✅     | Phase 3 — status filter, Card grid with progress bars, create/edit Sheet, delete AlertDialog, inline status control |
-| Schedule page                          | 🔲     | Phase 4 |
+| Schedule page                          | ✅     | Phase 4 — 7-day grouped view, create/edit Sheet with time inputs, delete AlertDialog |
 | Today page                             | 🔲     | Phase 5 — the priority page per `docs/ARCHITECTURE.md` |
 | Settings page                          | 🔲     | Phase 6 |
 
@@ -607,3 +607,18 @@ Short record of decisions made and why, so you don't relitigate them later.
   editing a task whose deadline quietly passed). Also matters now that deadline fields
   default to "right now" on open — a hard block would make that default randomly fail
   depending on how long someone takes filling out the rest of the form.
+- 2026-08-19 — Phase 4 (Schedule) built: `features/schedule/` (api+hooks, same toast copy
+  convention as Tasks/Projects), `lib/time.ts` (minutes-since-midnight ⇄ `<input type="time">`
+  conversions + a 12h display formatter — `ScheduleBlock.startTime`/`endTime` are ints, not a
+  time/string DB type, per the 2026-08-16 decision). `/schedule` groups blocks into all 7 days
+  always shown (even empty ones — "fully free" is real information, not a state to hide),
+  today's section highlighted, each day showing its committed-hours total; a shared
+  create/edit Sheet uses native `<input type="time">` (already includes a time picker as part
+  of the browser's own control) with a client-side mirror of the backend's `startTime <
+  endTime` cross-field check for immediate feedback. New commitment defaults to the next full
+  hour on today's day-of-week (rounds up, not the exact current minute — a block labeled
+  "3:47 PM–4:47 PM" reads oddly for a recurring commitment) — same "compute fresh on open,
+  don't bake into a static constant" pattern as Task/Project deadlines. No nullable-on-update
+  fields on `ScheduleBlock` (unlike Tasks/Projects), so the create/update payload split
+  documented for those forms doesn't apply here. `n` shortcut + command palette "New
+  Commitment" (`?new=1` bridge) added for parity with Tasks/Projects.
