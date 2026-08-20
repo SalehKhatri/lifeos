@@ -95,10 +95,30 @@ function valuesFromBlocks(blocks: ScheduleBlock[]): ScheduleFormValues {
   };
 }
 
+// A specific day/time range to prefill create mode with — how
+// WeekCalendar's click/drag-to-create hands off into this sheet.
+export interface ScheduleSlot {
+  dayOfWeek: number;
+  startTime: number;
+  endTime: number;
+}
+
+function valuesFromSlot(slot: ScheduleSlot): ScheduleFormValues {
+  return {
+    label: "",
+    dayOfWeek: [String(slot.dayOfWeek) as ScheduleFormValues["dayOfWeek"][number]],
+    startTime: minutesToTimeInput(slot.startTime),
+    endTime: minutesToTimeInput(slot.endTime),
+  };
+}
+
 interface ScheduleFormSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   blocks?: ScheduleBlock[]; // empty/omitted = create mode
+  // Prefills create mode from a click/drag on the calendar grid — ignored
+  // once `blocks` is non-empty (edit mode always wins).
+  initialSlot?: ScheduleSlot | null;
   // Only relevant (and rendered) in edit mode — the calendar grid opens
   // this sheet directly on click, with no separate per-block menu, so
   // delete lives here instead. The page still owns the actual delete
@@ -111,6 +131,7 @@ export function ScheduleFormSheet({
   open,
   onOpenChange,
   blocks = [],
+  initialSlot,
   onDelete,
 }: ScheduleFormSheetProps) {
   const createBlocks = useCreateScheduleBlocks();
@@ -134,8 +155,14 @@ export function ScheduleFormSheet({
   // fresh.
   useEffect(() => {
     if (!open) return;
-    reset(blocks.length > 0 ? valuesFromBlocks(blocks) : defaultValuesForNow());
-  }, [open, blocks, reset]);
+    if (blocks.length > 0) {
+      reset(valuesFromBlocks(blocks));
+    } else if (initialSlot) {
+      reset(valuesFromSlot(initialSlot));
+    } else {
+      reset(defaultValuesForNow());
+    }
+  }, [open, blocks, initialSlot, reset]);
 
   // useWatch, not useForm's own `watch()` — the latter trips a React
   // Compiler "incompatible library" warning; useWatch is the
@@ -147,7 +174,10 @@ export function ScheduleFormSheet({
   const spansMidnight = (() => {
     const start = timeInputToMinutes(startTimeValue);
     const end = timeInputToMinutes(endTimeValue);
-    return start !== undefined && end !== undefined && end < start;
+    // end === 0 ("00:00") means "ends exactly at midnight," a single
+    // same-day block — not a genuine span into tomorrow. Kept consistent
+    // with blocksForDay's own end === 0 special case below.
+    return start !== undefined && end !== undefined && end !== 0 && end < start;
   })();
 
   async function onSubmit(values: ScheduleFormValues) {
@@ -161,8 +191,21 @@ export function ScheduleFormSheet({
     // pairId, since the data model has no way to represent "extends past
     // this day" on a single row. Applied per selected day, so a multi-day
     // overnight selection (e.g. a Mon-Fri night shift) splits each one
-        // correctly, including the day-of-week wraparound.
+    // correctly, including the day-of-week wraparound.
+    //
+    // An end time of exactly "00:00" is a special case, not a genuine
+    // 1-minute-into-tomorrow span: it means "ends precisely at midnight,"
+    // which is already fully representable as a single same-day block
+    // ending at MINUTES_PER_DAY. Treating it as spanning like any other
+    // end < start would create a real block plus a zero-length tail
+    // (startTime === endTime === 0 on the next day) — reachable from the
+    // calendar grid's click-to-create (a plain click near 11pm defaults to
+    // a 1h block that lands exactly on midnight) even though the manual
+    // time inputs rarely produce it deliberately.
     function blocksForDay(day: number, pairId?: string): ScheduleBlockInput[] {
+      if (end === 0) {
+        return [{ label, dayOfWeek: day, startTime: start, endTime: MINUTES_PER_DAY }];
+      }
       if (end < start) {
         const sharedPairId = pairId ?? crypto.randomUUID();
         return [
@@ -176,7 +219,11 @@ export function ScheduleFormSheet({
     if (isEditing) {
       const day = Number(values.dayOfWeek[0]);
       const wasSpanning = blocks.length === 2;
-      const willSpan = end < start;
+      // Consistent with blocksForDay's own end === 0 special case — an end
+      // of exactly midnight produces a single block, not a pair, so it
+      // shouldn't force the (still-correct, just more expensive) replace
+      // path when a simple PATCH would do.
+      const willSpan = end !== 0 && end < start;
 
       // Simple in-place PATCH only when the shape doesn't change (a plain
       // block staying a plain block) — cheaper, and keeps the same id.

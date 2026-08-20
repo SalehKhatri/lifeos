@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -39,12 +39,53 @@ const HOURS = Array.from({ length: 24 }, (_, h) => h);
 // label share it. At or above it, the time range gets its own small line on
 // top so "when does this start/end" never requires reading the axis.
 const TWO_LINE_THRESHOLD = 34;
+// Click/drag-to-create snaps to the nearest quarter hour — fine enough to
+// place a block precisely, coarse enough that a slightly unsteady drag
+// still lands on a clean time.
+const DRAG_SNAP_MINUTES = 15;
+// A press-and-release with less movement than this is a plain click, not a
+// drag — defaults to a 1h block starting there instead of a near-zero
+// length one.
+const MIN_DRAG_MINUTES = 15;
+
+// Pure and module-level (not a component closure) so the mount-long
+// mousemove/mouseup listeners below can call it without becoming a
+// react-hooks/exhaustive-deps dependency.
+function minuteFromClientY(el: HTMLDivElement, clientY: number): number {
+  const rect = el.getBoundingClientRect();
+  const ratio = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
+  const raw = ratio * MINUTES_PER_DAY;
+  // Clamped below MINUTES_PER_DAY, not up to it — a drag never produces a
+  // literal midnight endpoint this way (see onCreateSlot's doc comment for
+  // why that matters: the only way to represent "ends exactly at midnight"
+  // is through the spanning-commitment split, not a raw same-day value).
+  return Math.min(
+    MINUTES_PER_DAY - DRAG_SNAP_MINUTES,
+    Math.round(raw / DRAG_SNAP_MINUTES) * DRAG_SNAP_MINUTES,
+  );
+}
+
+interface DragState {
+  dayOfWeek: number;
+  startMinute: number;
+  currentMinute: number;
+}
 
 interface WeekCalendarProps {
   blocks: ScheduleBlock[];
   // The commitment's full block set — 1 for an ordinary block, 2 for an
   // overnight pair (resolved via pairId before calling this).
   onEdit: (blocks: ScheduleBlock[]) => void;
+  // Fired on click or click-drag over empty grid space. startTime/endTime
+  // are always in that day's own local terms — a drag can never spatially
+  // cross the midnight boundary (that's a different column), so
+  // minuteFromClientY keeps both endpoints within a single day. The one
+  // case that *does* need to represent "runs into tomorrow" is a plain
+  // click late enough that the default 1h block would cross midnight —
+  // handled by wrapping endTime below startTime, exactly like typing an
+  // earlier end time does in the manual form, so the caller can feed this
+  // straight into the same create flow without any special-casing.
+  onCreateSlot: (dayOfWeek: number, startTime: number, endTime: number) => void;
 }
 
 function findPartner(
@@ -55,9 +96,12 @@ function findPartner(
   return all.find((b) => b.pairId === block.pairId && b.id !== block.id);
 }
 
-export function WeekCalendar({ blocks, onEdit }: WeekCalendarProps) {
+export function WeekCalendar({ blocks, onEdit, onCreateSlot }: WeekCalendarProps) {
   const today = new Date().getDay();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const dayRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const dragRef = useRef<DragState | null>(null);
+  const [drag, setDrag] = useState<DragState | null>(null);
 
   // Scrolls to roughly an hour before the week's earliest commitment on
   // mount, so the grid doesn't open showing a wall of empty 2am-6am space
@@ -73,6 +117,59 @@ export function WeekCalendar({ blocks, onEdit }: WeekCalendarProps) {
     // looking at the grid.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function handleMouseDown(dayOfWeek: number, e: React.MouseEvent<HTMLDivElement>) {
+    // Only starts a create-drag on genuinely empty grid space — an
+    // existing block's own button sits on top and handles its own click;
+    // without this check, a mousedown on it would bubble up and start a
+    // create-drag underneath the block being clicked to edit.
+    if (e.target !== e.currentTarget) return;
+    const el = dayRefs.current[dayOfWeek];
+    if (!el) return;
+    const minute = minuteFromClientY(el, e.clientY);
+    const next: DragState = { dayOfWeek, startMinute: minute, currentMinute: minute };
+    dragRef.current = next;
+    setDrag(next);
+  }
+
+  // A single mount-long subscription, not one per drag — window-level
+  // because the pointer can move outside the day column (or the grid
+  // entirely) mid-drag without the gesture ending. Gates everything on
+  // dragRef (a ref) rather than the `drag` state value itself, so this
+  // effect never needs to re-subscribe as the drag progresses.
+  useEffect(() => {
+    function handleMove(e: MouseEvent) {
+      const current = dragRef.current;
+      if (!current) return;
+      const el = dayRefs.current[current.dayOfWeek];
+      if (!el) return;
+      const minute = minuteFromClientY(el, e.clientY);
+      const next = { ...current, currentMinute: minute };
+      dragRef.current = next;
+      setDrag(next);
+    }
+    function handleUp(e: MouseEvent) {
+      const current = dragRef.current;
+      if (!current) return;
+      const el = dayRefs.current[current.dayOfWeek];
+      const minute = el ? minuteFromClientY(el, e.clientY) : current.currentMinute;
+      const start = Math.min(current.startMinute, minute);
+      const span = Math.max(current.startMinute, minute) - start;
+      // A plain click (no real drag) defaults to a 1h block. Wrapping via
+      // modulo covers clicking late enough that the default hour would run
+      // past midnight — see onCreateSlot's doc comment.
+      const end = span < MIN_DRAG_MINUTES ? (start + 60) % MINUTES_PER_DAY : start + span;
+      dragRef.current = null;
+      setDrag(null);
+      onCreateSlot(current.dayOfWeek, start, end);
+    }
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+    };
+  }, [onCreateSlot]);
 
   const now = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
@@ -132,12 +229,23 @@ export function WeekCalendar({ blocks, onEdit }: WeekCalendarProps) {
             const overlapping = findOverlappingIds(dayBlocks);
             const laidOut = layoutDayBlocks(dayBlocks);
             const isToday = dayOfWeek === today;
+            const preview =
+              drag && drag.dayOfWeek === dayOfWeek
+                ? {
+                    start: Math.min(drag.startMinute, drag.currentMinute),
+                    end: Math.max(drag.startMinute, drag.currentMinute),
+                  }
+                : null;
 
             return (
               <div
                 key={dayOfWeek}
+                ref={(el) => {
+                  dayRefs.current[dayOfWeek] = el;
+                }}
+                onMouseDown={(e) => handleMouseDown(dayOfWeek, e)}
                 className={cn(
-                  "relative flex-1 border-l border-border first:border-l-0",
+                  "relative flex-1 cursor-pointer border-l border-border first:border-l-0 select-none",
                   isToday && "bg-accent-cyan/5",
                 )}
                 style={{ height: GRID_HEIGHT }}
@@ -159,6 +267,29 @@ export function WeekCalendar({ blocks, onEdit }: WeekCalendarProps) {
                       top: (nowMinutes / MINUTES_PER_DAY) * GRID_HEIGHT,
                     }}
                   />
+                )}
+
+                {/* Live drag preview — a dashed, unfilled-in-color outline
+                    (deliberately distinct from a real block's solid
+                    bg-muted fill) with its own time range printed above it,
+                    so "where this new commitment will land" is exactly as
+                    legible while dragging as an existing block is at rest. */}
+                {preview && (
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-x-0.5 z-20 rounded-md border-2 border-dashed border-accent-cyan bg-accent-cyan/10"
+                    style={{
+                      top: (preview.start / MINUTES_PER_DAY) * GRID_HEIGHT,
+                      height: Math.max(
+                        ((preview.end - preview.start) / MINUTES_PER_DAY) * GRID_HEIGHT,
+                        4,
+                      ),
+                    }}
+                  >
+                    <span className="absolute -top-4 left-0 whitespace-nowrap font-mono text-[10px] text-accent-cyan">
+                      {formatClockTime(preview.start)} – {formatClockTime(preview.end)}
+                    </span>
+                  </div>
                 )}
 
                 {laidOut.map(({ block, lane, laneCount }) => {
@@ -202,6 +333,10 @@ export function WeekCalendar({ blocks, onEdit }: WeekCalendarProps) {
                       key={block.id}
                       type="button"
                       onClick={() => onEdit(commitmentBlocks)}
+                      // Blocks handle their own mousedown so a drag started
+                      // on top of one edits instead of also starting a
+                      // create-drag on the empty space underneath it.
+                      onMouseDown={(e) => e.stopPropagation()}
                       title={`${block.label} · ${timeText}${partner ? " (continues onto the next day)" : ""}`}
                       // Solid bg-muted, not a translucent tint of the label
                       // color — a wash-of-color fill let the hour lines

@@ -17,7 +17,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { WeekCalendar } from "@/features/schedule/components/week-calendar";
-import { ScheduleFormSheet } from "@/features/schedule/components/schedule-form-sheet";
+import {
+  ScheduleFormSheet,
+  type ScheduleSlot,
+} from "@/features/schedule/components/schedule-form-sheet";
 import { useDeleteScheduleBlocks, useScheduleBlocks } from "@/features/schedule/hooks";
 import { formatDuration } from "@/lib/time";
 import type { ScheduleBlock } from "@/types";
@@ -46,6 +49,11 @@ export default function SchedulePage() {
   // triggers, same shared-AlertDialog-at-the-page-level pattern as every
   // other delete flow in the app.
   const [deleteTarget, setDeleteTarget] = useState<ScheduleBlock[] | null>(null);
+  // Set by clicking/dragging empty grid space — prefills create mode with
+  // that day/time range. Cleared whenever create is opened any other way,
+  // so the "New commitment" button and the "n" shortcut still default to
+  // right-now instead of stale grid coordinates from a previous click.
+  const [createSlot, setCreateSlot] = useState<ScheduleSlot | null>(null);
 
   useEffect(() => {
     if (searchParams.get("new")) {
@@ -56,11 +64,21 @@ export default function SchedulePage() {
 
   function openCreate() {
     setEditingBlocks([]);
+    setCreateSlot(null);
     setSheetOpen(true);
   }
 
   function openEdit(blocks: ScheduleBlock[]) {
     setEditingBlocks(blocks);
+    setSheetOpen(true);
+  }
+
+  // Click or click-drag on empty grid space — see WeekCalendar's
+  // onCreateSlot doc comment for why startTime/endTime already arrive
+  // correctly wrapped for a commitment that runs past midnight.
+  function handleCreateSlot(dayOfWeek: number, startTime: number, endTime: number) {
+    setEditingBlocks([]);
+    setCreateSlot({ dayOfWeek, startTime, endTime });
     setSheetOpen(true);
   }
 
@@ -111,6 +129,9 @@ export default function SchedulePage() {
             {commitmentCount} commitment{commitmentCount === 1 ? "" : "s"}
           </span>
           <span>{formatDuration(totalMinutes)} committed this week</span>
+          <span className="text-muted-foreground/70">
+            Click or drag on the grid to add a commitment
+          </span>
         </div>
       )}
 
@@ -119,13 +140,14 @@ export default function SchedulePage() {
       ) : isError ? (
         <QueryErrorState onRetry={() => refetch()} />
       ) : (
-        <WeekCalendar blocks={blocks ?? []} onEdit={openEdit} />
+        <WeekCalendar blocks={blocks ?? []} onEdit={openEdit} onCreateSlot={handleCreateSlot} />
       )}
 
       <ScheduleFormSheet
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         blocks={editingBlocks}
+        initialSlot={createSlot}
         onDelete={
           editingBlocks.length > 0
             ? () => {

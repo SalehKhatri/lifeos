@@ -803,3 +803,19 @@ Short record of decisions made and why, so you don't relitigate them later.
   `valuesFromBlocks` unconditionally reads index 0 as the head. Fixed by ordering
   `commitmentBlocks` using the already-computed `isHead` flag instead of raw click order, so
   it's always `[head, tail]` regardless of which half was clicked.
+- 2026-08-20 — Added click/drag-to-create on the calendar grid itself (user request), not just
+  via the "New commitment" button — click empty grid space for a default 1h block, or drag to
+  pick an exact range, both snapped to 15min and shown live via a dashed preview outline.
+  Explicitly handles the next-day case per the user's request: clicking late enough that the
+  default 1h block would cross midnight wraps the end time below the start
+  (`(start + 60) % MINUTES_PER_DAY`), the same shape the manual form already treats as
+  "spans midnight," so it flows into the existing auto-split/pairing logic with no
+  special-casing. Found and fixed a related latent bug in the same pass: an end time of
+  exactly `"00:00"` was being treated as a genuine span into tomorrow (creating a real block
+  plus a zero-length tail, `startTime === endTime === 0`, on the next day) instead of what it
+  actually means — "ends precisely at midnight," representable as a single same-day block
+  ending at `MINUTES_PER_DAY`. Reachable via this new feature (a click near 11pm defaults to a
+  1h block landing exactly on midnight) even though the pre-existing manual time inputs rarely
+  produced it deliberately; all three affected call sites (`blocksForDay`, `willSpan`,
+  `spansMidnight`) now special-case `end === 0` consistently. Full reasoning in
+  `frontend/DESIGN.md`.

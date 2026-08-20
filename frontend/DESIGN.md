@@ -381,6 +381,38 @@ reinventing per component:
     the block clips overflow for text truncation, so anything positioned outside its bounds
     would just get cut off) and anchored opposite the dot + label so they never collide; a
     `pr-3.5` reserves room so a long truncated label's ellipsis can't run underneath one.
+  - **Click or drag on empty grid space to create a commitment there**, not just via the
+    "New commitment" button — the calendar-native interaction, matching how editing already
+    works (click a block). A `mousedown` on a day column (guarded by `e.target ===
+    e.currentTarget` so it only fires on genuinely empty space, not an existing block's own
+    button, which additionally `stopPropagation`s its own `mousedown`) starts tracking;
+    `mousemove`/`mouseup` are a single mount-long `window` subscription (not one per drag) so
+    the pointer can leave the day column — or the grid entirely — mid-drag without breaking
+    the gesture, gated on a ref rather than the `drag` state value so the listeners never need
+    to resubscribe as the drag progresses. Both endpoints snap to the nearest 15 minutes and
+    stay within that single day (0 to `MINUTES_PER_DAY - 15`) — a drag can't spatially cross
+    midnight since that's a different column. A short press-and-release (< 15 real minutes of
+    movement) is treated as a plain click and defaults to a 1h block. A live dashed-outline
+    preview (deliberately distinct from a real block's solid fill) tracks the drag with its
+    own time-range label, so "where this lands" is exactly as legible mid-drag as an existing
+    block is at rest.
+    - **The next-day case**: clicking late enough that the default 1h block would cross
+      midnight wraps the end time below the start time (`(start + 60) % MINUTES_PER_DAY`) —
+      exactly the same shape the manual form already treats as "spans midnight," so it flows
+      into the existing auto-split/pairing logic with no special-casing needed at the call
+      site. Found and fixed in the same pass: an end time of exactly `"00:00"` was being
+      treated as a genuine 1-minute-into-tomorrow span by `blocksForDay`, `willSpan`, and the
+      `spansMidnight` hint alike — which created a real block plus a zero-length tail
+      (`startTime === endTime === 0` on the next day), reachable this way whenever a click
+      near 11pm defaults to a 1h block that lands exactly on midnight. `"00:00"` actually
+      means "ends precisely at midnight," already fully representable as a single same-day
+      block ending at `MINUTES_PER_DAY` — all three call sites now special-case `end === 0`
+      to agree with that.
+    - **`ScheduleFormSheet` gained an `initialSlot` prop** (`{dayOfWeek, startTime, endTime}`)
+      — prefills create mode from a grid click/drag, ignored once `blocks` is non-empty (edit
+      mode always wins). The page clears it whenever create is opened any other way (the
+      button, the "n" shortcut) so those keep defaulting to right-now instead of a stale grid
+      coordinate from a previous click.
 - **Today (`app/(app)/today/`)** is where two conventions written earlier in this document
   finally get used for the first time, rather than new ones being invented: `.animate-pulse-glow`
   (earmarked back when it was added — "the handful of elements that should feel alive at
