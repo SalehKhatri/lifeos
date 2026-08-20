@@ -1,40 +1,21 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { formatClockTime } from "@/lib/time";
 import type { ScheduleBlock } from "@/types";
 
 interface TodaysCommitmentsProps {
   commitments: ScheduleBlock[];
-}
-
-// Ticks every 30s so the "now" highlight below moves on to the next
-// commitment on its own, without needing a manual refresh — same reasoning
-// as CurrentCommitmentBanner's identical hook (kept local to each
-// component rather than shared/prop-drilled; two independent 30s
-// intervals cost nothing this page cares about).
-function useNowMinutes(): number {
-  const [minutes, setMinutes] = useState(() => {
-    const now = new Date();
-    return now.getHours() * 60 + now.getMinutes();
-  });
-  useEffect(() => {
-    const id = setInterval(() => {
-      const now = new Date();
-      setMinutes(now.getHours() * 60 + now.getMinutes());
-    }, 30_000);
-    return () => clearInterval(id);
-  }, []);
-  return minutes;
+  // Shared with CommitmentStatusBanner above it (via the page's single
+  // useNowMinutes tick, features/recommendations/hooks.ts) rather than
+  // ticking its own independent clock — this row and that banner describe
+  // the same commitment, so they should agree on "now" from one source,
+  // not two intervals that could momentarily disagree.
+  nowMinutes: number;
 }
 
 // Read-only here — editing a commitment is Schedule's job (/schedule), not
 // Today's. This is just "what's fixed today" context for deciding what to
 // work on in the free time around it.
-export function TodaysCommitments({ commitments }: TodaysCommitmentsProps) {
-  const nowMinutes = useNowMinutes();
-
+export function TodaysCommitments({ commitments, nowMinutes }: TodaysCommitmentsProps) {
   if (commitments.length === 0) {
     return <p className="text-xs text-muted-foreground italic">Fully free — nothing scheduled today.</p>;
   }
@@ -50,7 +31,7 @@ export function TodaysCommitments({ commitments }: TodaysCommitmentsProps) {
             key={block.id}
             className={cn(
               "flex items-center gap-3 rounded-lg bg-card px-3 py-2 text-sm text-card-foreground ring-1 ring-foreground/10",
-              // Mirrors CurrentCommitmentBanner above — this row and that
+              // Mirrors CommitmentStatusBanner above — this row and that
               // banner describe the same commitment, so they shouldn't
               // look like two unrelated pieces of information.
               isNow && "ring-accent-cyan/40",

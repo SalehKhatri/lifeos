@@ -838,3 +838,16 @@ Short record of decisions made and why, so you don't relitigate them later.
   `TodaysCommitments`' existing empty state. `TodaysCommitments` also gained a small "Now" tag
   on the matching row for consistency with the new banner. Full reasoning in
   `frontend/DESIGN.md`.
+- 2026-08-20 — Extended Today per user follow-up ("what other info can/should we show on
+  today?", user picked all four suggested): renamed `CurrentCommitmentBanner` to
+  `CommitmentStatusBanner` and gave it a forward-looking "next up" line (nearest commitment
+  with `startTime > nowMinutes`) alongside the existing "now" cards — framed as a compact
+  reminder if already busy, or as the lead fact ("Zm right now — then X at Y") if not, since
+  that's a genuinely different, more actionable number than the page's total-free-today stat.
+  Hoisted the 30s `useNowMinutes` tick out of both this component and `TodaysCommitments`
+  (each previously ran its own independent copy) into `features/recommendations/hooks.ts`,
+  owned once by the page and passed down as a prop, so "now" can't silently disagree between
+  them. Added a date + greeting subtitle under the (still-static) "Today" heading, using
+  `user.name` when set. Added a "+N more tasks in your queue" link under Up Next, surfacing
+  the rest of `recommendations.tasks`' full ranked list beyond what `today.upNext` shows.
+  Full reasoning in `frontend/DESIGN.md`.

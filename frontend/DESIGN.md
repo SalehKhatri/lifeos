@@ -446,22 +446,44 @@ reinventing per component:
   invalidates `["today"]`/`["recommendations"]` (`features/tasks/hooks.ts`'s
   `invalidateTaskRelated`), not just `["tasks"]` — completing/editing/deleting a task from
   *anywhere* in the app can change what Today should rank next.
-  - **`CurrentCommitmentBanner`** (user request: "if current time some commitment are going
-    on display the info about it at top") leads the page, above even the free-minutes line —
-    "what should I work on" implicitly depends on what's already claiming your time this
-    exact minute. Filters (not `.find`s) `today.commitments` for `nowMinutes >= startTime &&
-    nowMinutes < endTime` — plural because the app deliberately allows overlapping
-    commitments elsewhere (Schedule warns rather than blocks), so more than one can
-    legitimately be "now" at once, however rare — and renders nothing at all when the answer
-    is empty, same "an inactive state is itself real information" reasoning as
-    `TodaysCommitments`' own empty state. Ticks every 30s via a local `useNowMinutes` (a
-    `setInterval`, not derived once per render) so "ends in 12m" and which commitment even
-    counts as current both stay right without a manual refresh — this page is meant to be
-    glanced at throughout the day, not just loaded once each morning. `TodaysCommitments`
-    gained the identical tick (kept local rather than shared/prop-drilled — two independent
-    30s intervals cost nothing this page cares about) purely to put a small "Now" tag + cyan
-    ring on the matching row, so that list doesn't look unaware of the same fact the banner
-    above it is announcing.
+  - **`CommitmentStatusBanner`** (`current-commitment-banner.tsx` renamed once its job grew —
+    user request: "if current time some commitment are going on display the info about it at
+    top," later extended in the same conversation with a forward-looking "next up" line and a
+    contiguous free-time figure, both user-selected follow-ups) leads the page, above even the
+    free-minutes line — "what should I work on" implicitly depends on what's already claiming
+    your time this exact minute. Filters (not `.find`s) `today.commitments` for
+    `nowMinutes >= startTime && nowMinutes < endTime` — plural because the app deliberately
+    allows overlapping commitments elsewhere (Schedule warns rather than blocks), so more than
+    one can legitimately be "now" at once, however rare. Also computes `next` (the nearest
+    commitment with `startTime > nowMinutes`) and renders one of two framings for it: a
+    compact "Next: X at Y · in Zm" line if something's already active (the "Now" row above
+    already answers "am I free right now"), or the lead fact itself — "Zm right now — then X
+    at Y" — if nothing is, since that's a genuinely different number from the page's own "X
+    free today" stat (which totals *scattered* remaining minutes across the whole day, not
+    the one *contiguous* block usable starting right now). Renders nothing at all when there's
+    neither an active commitment nor anything left today — the "X free today" line already
+    covers that case. `useNowMinutes` (`features/recommendations/hooks.ts`) is a single
+    30s-interval clock owned by the *page*, not duplicated locally inside this component and
+    `TodaysCommitments` (an earlier version had each running its own identical, independently-
+    drifting interval) — both now take `nowMinutes` as a prop instead, so "now" can never
+    silently disagree between the banner and `TodaysCommitments`' matching "Now" tag/cyan ring
+    on the same commitment's row further down.
+  - **Date + greeting subtitle** ("Good afternoon, Saleh · Monday, August 20", user request)
+    sits under the static "Today" heading rather than replacing it — every other page's `h1`
+    is just its plain name, and this page's actual identity as "the priority page" shouldn't
+    depend on a client-side greeting rendering correctly. Uses `user.name` from
+    `useCurrentUser()` when set (the exact "for display/greetings" use `docs/MVP_SPEC.md`
+    named when `User.name` was made optional) and device-local time via a plain `new Date()`
+    in render, same as every other client-side "now" in this app (the grid's own-time
+    indicator, this page's commitment banner) — never the user's stored IANA `timezone`
+    preference, which is a server-side interpretation setting, not something the browser's
+    own clock needs to consult to know what time it is on the device actually being looked at.
+  - **"+N more tasks in your queue" link** under Up Next — `recommendations.tasks` is the
+    *full* ranked list; `today.upNext` is only `tasks.slice(1, 4)`. Rather than let the rest of
+    the queue disappear with no way to see it, `queuedCount` (full length minus whatever's
+    already shown) renders a quiet `<Link href="/tasks">` when positive — same "real `<Link>`,
+    not a click handler," same muted-until-hover styling as Projects' task-count link into
+    Tasks.
 - **Settings (`app/(app)/settings/`)** introduces this app's first standalone `Command`+
   `Popover` combobox — the command palette also composes these two, but as a `CommandDialog`
   triggered globally, a structurally different job from an inline field inside a form. The

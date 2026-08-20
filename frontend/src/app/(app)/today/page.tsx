@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { PartyPopper, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,8 +18,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { TopTaskCard } from "@/features/recommendations/components/top-task-card";
 import { TodaysCommitments } from "@/features/recommendations/components/todays-commitments";
-import { CurrentCommitmentBanner } from "@/features/recommendations/components/current-commitment-banner";
-import { useRecommendations, useTodayView } from "@/features/recommendations/hooks";
+import { CommitmentStatusBanner } from "@/features/recommendations/components/commitment-status-banner";
+import { useNowMinutes, useRecommendations, useTodayView } from "@/features/recommendations/hooks";
+import { useCurrentUser } from "@/features/auth/hooks";
 import { TaskCard } from "@/features/tasks/components/task-list";
 import { TaskFormSheet } from "@/features/tasks/components/task-form-sheet";
 import { useCompleteTask, useDeleteTask, useSetTaskStatus } from "@/features/tasks/hooks";
@@ -32,12 +34,36 @@ function isTypingTarget(target: EventTarget | null) {
   );
 }
 
+// Hour boundaries are a matter of taste, not a spec — picked the usual
+// noon/5pm split rather than anything configurable.
+function greetingFor(hour: number): string {
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 export default function TodayPage() {
   const { data: today, isLoading, isError, refetch } = useTodayView();
   const { data: recommendations } = useRecommendations();
+  const { data: user } = useCurrentUser();
   const completeTask = useCompleteTask();
   const setStatus = useSetTaskStatus();
   const deleteTask = useDeleteTask();
+  // One shared clock for the whole page — CommitmentStatusBanner and
+  // TodaysCommitments both read this instead of ticking their own,
+  // independent 30s intervals (see hooks.ts's useNowMinutes).
+  const nowMinutes = useNowMinutes();
+  const now = new Date();
+
+  // The full ranked list (`recommendations.tasks`) is longer than what the
+  // Today view actually surfaces (topTask + up to 3 more) — this is
+  // whatever's left over, so "Up Next" doesn't quietly hide the rest of
+  // the queue with no way to see it.
+  const queuedCount = useMemo(() => {
+    if (!recommendations || !today) return 0;
+    const shown = (today.topTask ? 1 : 0) + today.upNext.length;
+    return Math.max(0, recommendations.tasks.length - shown);
+  }, [recommendations, today]);
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -77,7 +103,21 @@ export default function TodayPage() {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="font-heading text-2xl font-semibold">Today</h1>
+        <div>
+          <h1 className="font-heading text-2xl font-semibold">Today</h1>
+          {/* Static "Today" stays the actual heading (matches every other
+              page's plain-name h1) — the greeting/date is a subtitle, not
+              a replacement for it. */}
+          <p className="text-sm text-muted-foreground">
+            {greetingFor(now.getHours())}
+            {user?.name ? `, ${user.name}` : ""} ·{" "}
+            {now.toLocaleDateString(undefined, {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+            })}
+          </p>
+        </div>
         <Button onClick={openCreate}>
           <Plus />
           New task
@@ -90,7 +130,7 @@ export default function TodayPage() {
           this exact minute, so it leads the page rather than sitting
           buried in the commitments list further down. */}
       {!isLoading && !isError && today && (
-        <CurrentCommitmentBanner commitments={today.commitments} />
+        <CommitmentStatusBanner commitments={today.commitments} nowMinutes={nowMinutes} />
       )}
 
       {/* Real, at-a-glance number — the whole premise of this page is
@@ -144,6 +184,17 @@ export default function TodayPage() {
                   />
                 ))}
               </div>
+              {/* The ranked list is longer than what this page surfaces —
+                  a quiet link, not a hidden truncation, to the rest of the
+                  queue. */}
+              {queuedCount > 0 && (
+                <Link
+                  href="/tasks"
+                  className="block px-1 text-xs text-muted-foreground underline-offset-2 hover:text-accent-cyan hover:underline"
+                >
+                  +{queuedCount} more task{queuedCount === 1 ? "" : "s"} in your queue →
+                </Link>
+              )}
             </div>
           )}
 
@@ -154,7 +205,7 @@ export default function TodayPage() {
             {isLoading ? (
               <Skeleton className="h-16 w-full" />
             ) : (
-              <TodaysCommitments commitments={today?.commitments ?? []} />
+              <TodaysCommitments commitments={today?.commitments ?? []} nowMinutes={nowMinutes} />
             )}
           </div>
         </>
