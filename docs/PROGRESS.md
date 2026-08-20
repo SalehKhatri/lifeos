@@ -851,3 +851,17 @@ Short record of decisions made and why, so you don't relitigate them later.
   `user.name` when set. Added a "+N more tasks in your queue" link under Up Next, surfacing
   the rest of `recommendations.tasks`' full ranked list beyond what `today.upNext` shows.
   Full reasoning in `frontend/DESIGN.md`.
+- 2026-08-20 — Mobile responsiveness pass (code audit, no browser-automation tooling set up in
+  this environment — everything below verified from CSS/layout logic, not a live viewport;
+  flagged for the user's own visual check). Real bug found and fixed: the nav shell's header
+  row (wordmark + 4 nav links + ⌘K + user name) had no fallback below `md` — unlike other
+  toolbars in the app, its content genuinely can't wrap (each nav label is one unbreakable
+  uppercase word), so it would overflow rather than shrink. Fixed with a hamburger button +
+  `Sheet` (controlled open state, matching every other Sheet in the app) replacing the
+  desktop nav/account controls below `md`. Also fixed `AlertDialogContent` (the shared
+  primitive behind every delete confirmation) having no viewport-edge safety margin, unlike
+  `DialogContent` right next to it — changed `w-full` to `w-[calc(100%-2rem)]` so it can never
+  touch both screen edges on a narrow phone. Everything else (toolbars, card grids, form
+  grids, the week calendar's internal scroll, Today's new greeting text) audited and left
+  alone — already responsive or self-healing via normal text wrap, not superficially papered
+  over. Full reasoning in `frontend/DESIGN.md`.

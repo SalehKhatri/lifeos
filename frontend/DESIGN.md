@@ -500,6 +500,37 @@ reinventing per component:
   messaging (a login failure and a delete-account failure shouldn't necessarily read the
   same way), unlike a Task/Project/Schedule mutation hook that's really only ever called
   from one obvious page.
+- **Mobile nav pass (2026-08-20)**: the header row (`app/(app)/layout.tsx`) — wordmark + 4
+  text nav links + ⌘K button + user name — had no fallback below `md` at all. Unlike the
+  toolbar rows elsewhere (search/sort/filters, already `flex flex-wrap`), this row's content
+  genuinely *can't* wrap: each nav label is one uppercase word with no break opportunity, so
+  the row would either overflow the viewport or force horizontal page scroll rather than
+  gracefully shrinking. Fixed by hiding the desktop `<nav>` and the ⌘K+user-dropdown `<div>`
+  below `md` and replacing them with a single hamburger button that opens a `Sheet` (`side=
+  "left"`) containing the same 4 links stacked vertically plus Search/Settings/Log out —
+  matches shadcn's own recommended mobile-nav composition (`Sheet` + `Button` + `Separator`).
+  Controlled `open`/`onOpenChange` state, not an uncontrolled `SheetTrigger` — every other
+  Sheet in this app is opened the same way (a page/layout owns the boolean, a plain button
+  flips it), so this doesn't introduce a second pattern for the one component that happens to
+  live in the shared layout instead of a page.
+  - **`AlertDialogContent` had no viewport-edge safety margin**, found in the same pass —
+    `w-full` with no `calc(100% - Nrem)` clamp, unlike `DialogContent` right next to it in the
+    same directory, which already had one. Below ~352px wide (`max-w-xs` + a 2rem margin) the
+    dialog would size to exactly the viewport width with zero gutter, touching both screen
+    edges. Changed to `w-[calc(100%-2rem)]` (a real `width`, not another competing
+    `max-width`, so it composes correctly with the existing `data-[size=*]:max-w-*` caps
+    instead of fighting them for the same CSS property) — this is the shared primitive behind
+    every delete confirmation in the app, so the fix applies everywhere at once.
+  - **Everything else audited and left alone, verified from code rather than a live viewport**
+    (no browser-automation tooling set up in this environment): Tasks/Projects toolbars are
+    already `flex flex-wrap`; Projects' card grid is already `grid-cols-1 sm:grid-cols-2
+    lg:grid-cols-3`; `TaskFormSheet`/`ScheduleFormSheet`'s 2-column time/priority rows shrink
+    via `w-full` on their inner controls rather than overflowing, just cozier on the smallest
+    phones; the week calendar grid's `min-w-180` content already scrolls *within* its own
+    `overflow-auto` container rather than widening the page, since nothing between it and the
+    viewport is a flex/grid context that would need an explicit `min-width: 0` escape hatch;
+    Today's new greeting subtitle has no `nowrap` anywhere, so it wraps across lines like
+    ordinary text instead of overflowing, unlike the nav row's single-word links.
 
 - **Filter bars collapse behind one "Filters" `Popover` once there are more than ~2-3
   axes**, rather than showing every `Select` inline — four always-visible filters
