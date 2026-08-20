@@ -598,3 +598,12 @@ Short record of decisions made and why, so you don't relitigate them later.
   update branch. `ProjectFormSheet` already did this correctly (separate create/update
   branches, never merged into one object). Rule recorded in `frontend/DESIGN.md`: never share
   one payload object across create/update for a resource with any nullable-on-update field.
+- 2026-08-19 — Confirmed deliberate: past deadlines are allowed on Tasks/Projects, no
+  validation blocking them (already true today — no `min` attribute on the date input, no
+  Zod refinement on either frontend or backend). The app already treats overdue as
+  first-class data (red "overdue" text, the stats line's overdue count, the Prioritization
+  Engine's urgency weighting) rather than an error state; blocking past dates at creation
+  would contradict that and break normal use (backfilling a task logged after its due date,
+  editing a task whose deadline quietly passed). Also matters now that deadline fields
+  default to "right now" on open — a hard block would make that default randomly fail
+  depending on how long someone takes filling out the rest of the form.
