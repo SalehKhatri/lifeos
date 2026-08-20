@@ -796,3 +796,10 @@ Short record of decisions made and why, so you don't relitigate them later.
   marker per user request (chevron on whichever corner touches midnight, plus squaring off
   that corner) so a pair reads as "one shift split by the day boundary" without needing to
   hover for the tooltip. Full reasoning in `frontend/DESIGN.md`.
+- 2026-08-20 — Fixed editing an overnight pair from its tail half (the second day) prefilling
+  garbage — wrong day, start/end both midnight. `commitmentBlocks` was built as
+  `[block, partner]`, which only happens to be `[head, tail]` when the head is the one
+  clicked; clicking the tail produced `[tail, head]`, and `ScheduleFormSheet`'s
+  `valuesFromBlocks` unconditionally reads index 0 as the head. Fixed by ordering
+  `commitmentBlocks` using the already-computed `isHead` flag instead of raw click order, so
+  it's always `[head, tail]` regardless of which half was clicked.

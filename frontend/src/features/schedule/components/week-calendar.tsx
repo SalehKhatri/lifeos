@@ -163,7 +163,6 @@ export function WeekCalendar({ blocks, onEdit }: WeekCalendarProps) {
 
                 {laidOut.map(({ block, lane, laneCount }) => {
                   const partner = findPartner(block, blocks);
-                  const commitmentBlocks = partner ? [block, partner] : [block];
                   // The head half is always stored ending at exactly
                   // MINUTES_PER_DAY (midnight) by construction — that's a
                   // placeholder, not the real end, so its *display* end has
@@ -175,6 +174,18 @@ export function WeekCalendar({ blocks, onEdit }: WeekCalendarProps) {
                   // its own, producing a nonsense "12:00 AM – 12:00 AM".
                   const isHead = Boolean(partner) && block.endTime === MINUTES_PER_DAY;
                   const isTail = Boolean(partner) && block.startTime === 0;
+                  // Always ordered [head, tail], regardless of which half
+                  // was actually clicked — ScheduleFormSheet's
+                  // valuesFromBlocks unconditionally reads index 0 as the
+                  // head (its start is the commitment's real start) and
+                  // index 1 as the tail (its end is the real end). Clicking
+                  // the tail used to pass [block, partner] = [tail, head],
+                  // silently feeding the form the wrong day/start/end.
+                  const commitmentBlocks = !partner
+                    ? [block]
+                    : isHead
+                      ? [block, partner]
+                      : [partner, block];
                   const displayEnd = isHead && partner ? partner.endTime : block.endTime;
                   const top = (block.startTime / MINUTES_PER_DAY) * GRID_HEIGHT;
                   const height =
