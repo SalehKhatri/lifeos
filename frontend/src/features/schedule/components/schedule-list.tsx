@@ -47,7 +47,7 @@ export function ScheduleList({ blocks, onEdit }: ScheduleListProps) {
 
   return (
     <>
-      <div className="space-y-4">
+      <div className="space-y-6">
         {DAY_LABELS.map((dayName, dayOfWeek) => {
           const dayBlocks = blocks
             .filter((b) => b.dayOfWeek === dayOfWeek)
@@ -60,7 +60,16 @@ export function ScheduleList({ blocks, onEdit }: ScheduleListProps) {
           const overlapping = findOverlappingIds(dayBlocks);
 
           return (
-            <div key={dayOfWeek} className="space-y-2">
+            // A subtle filled panel per day, not just a border line — the
+            // (app) layout's .hud-grid-bg texture behind this page meant a
+            // thin border blended right into the grid instead of reading
+            // as a divider (user feedback). An actual background fill
+            // blocks the grid and reads as a real section boundary. Kept
+            // deliberately subtle (bg-muted/20, not bg-card) so it doesn't
+            // read as a card containing cards — the block rows below are
+            // still the more prominent bg-card surface, this is just the
+            // group they sit in.
+            <div key={dayOfWeek} className="space-y-2 rounded-lg bg-muted/20 p-3">
               <div className="flex items-center gap-2">
                 <h2
                   className={cn(

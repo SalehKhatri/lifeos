@@ -645,3 +645,9 @@ Short record of decisions made and why, so you don't relitigate them later.
   showing each day's blocks as proportional colored segments plus a current-time marker on
   today — see the day's shape at a glance instead of reading every time range as text. Full
   reasoning in `frontend/DESIGN.md`.
+- 2026-08-19 — User-reported: the 7 day sections "blend together." First attempt
+  (`border-b` under each header) didn't help either — the page sits on the authenticated
+  shell's `.hud-grid-bg` texture, and a 1px border just blends into that existing grid
+  instead of reading as a boundary. Fixed with an actual fill per day (`bg-muted/20`, kept
+  subtle so it doesn't read as a card-inside-a-card next to the commitment rows' `bg-card`)
+  — a real fill blocks the grid where a line couldn't.

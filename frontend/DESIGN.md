@@ -334,6 +334,17 @@ reinventing per component:
     ("morning free, afternoon packed") at a glance instead of reading every time range as
     text — the whole reason this page groups by day in the first place, taken one step
     further.
+  - **Day sections needed a real fill, not a border — the page's `.hud-grid-bg` texture ate
+    the divider.** `space-y-4` between 7 stacked day groups read as one continuous list
+    (user feedback: "everything blends together"); a `border-b` fix attempted first didn't
+    help either, for a reason specific to this page: the authenticated shell's background
+    grid texture sits right behind `/schedule`, and a 1px line just blends into that existing
+    grid instead of reading as a boundary. Fixed with an actual fill per day
+    (`rounded-lg bg-muted/20 p-3`) — an opaque-enough panel blocks the grid and reads as a
+    real section, which a border can't do against a textured background. Kept deliberately
+    subtle (`bg-muted/20`, not `bg-card`) so it doesn't read as a card containing cards — the
+    commitment rows inside are still the more prominent `bg-card` surface; this is just the
+    group they sit in, one visual tier below.
 
 - **Filter bars collapse behind one "Filters" `Popover` once there are more than ~2-3
   axes**, rather than showing every `Select` inline — four always-visible filters
