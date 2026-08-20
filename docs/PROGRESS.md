@@ -777,3 +777,14 @@ Short record of decisions made and why, so you don't relitigate them later.
   ordinary segments across adjacent day columns already read correctly as one continuous
   shift, which is the grid doing for free what the list needed real logic for. Deleted
   `schedule-list.tsx` (fully superseded). Full reasoning in `frontend/DESIGN.md`.
+- 2026-08-20 — Restyled `WeekCalendar` after user feedback that the first version was "the
+  ugliest calendar I've seen... confusing where things start and end." Three real bugs, not
+  just taste: translucent color-tinted block fills let the hour grid lines bleed through and
+  look washed-out; the sticky header and scrollable body were separate elements, so a
+  scrollbar on one but not the other could drift the day columns out of alignment with their
+  headers; and blocks never showed an actual time range, only the label. Fixed: solid
+  `bg-muted` blocks with color carried only by a left border + dot, one shared scroll
+  container with the header `sticky` inside it (both axes now scroll together, columns can't
+  disagree), a time-range line printed on each block when it's tall enough to fit one, and an
+  opaque `bg-card` surface for the whole grid instead of the page's `.hud-grid-bg` texture
+  showing through underneath it. Full reasoning in `frontend/DESIGN.md`.

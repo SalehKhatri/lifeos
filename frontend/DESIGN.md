@@ -347,6 +347,25 @@ reinventing per component:
     always gets the same color without needing an actual color field on `ScheduleBlock`)
     carried over unchanged from the list-view era; both were already display/input-layer
     concerns independent of list-vs-grid.
+  - **Restyled after user feedback that the first version was "the ugliest calendar I've
+    seen... confusing where things start and end."** Three real problems, not just taste:
+    (1) blocks used a translucent tint of the label color as their fill, which let the hour
+    grid lines bleed straight through and made every block look washed-out; (2) the sticky
+    day-header row and the scrollable grid body were two separate elements, so the body's
+    vertical scrollbar could eat width from one but not the other and the columns could
+    silently drift out of alignment with their headers; (3) blocks only ever showed the
+    label, never the actual time range, so "when does this start/end" required reading
+    position against the hour gutter instead of just reading the block. Fixed: blocks are
+    solid `bg-muted` (opaque, so grid lines never show through) with color identity carried
+    only by a `border-l-[3px]` + a small dot — same "accent, not a flood" rule used
+    everywhere else in the app, not a full-block color wash; the header and grid now live in
+    one shared scroll container with the header `sticky top-0` *inside* it, so both axes
+    scroll together and columns can never disagree; and every block prints its time range as
+    a small mono line above the label once it's tall enough (`TWO_LINE_THRESHOLD`), falling
+    back to a single truncated line for anything shorter. The grid itself also got an opaque
+    `bg-card` surface instead of sitting directly on the page's `.hud-grid-bg` texture, which
+    was the root cause of the whole thing reading as visually foreign against the rest of the
+    app.
 - **Today (`app/(app)/today/`)** is where two conventions written earlier in this document
   finally get used for the first time, rather than new ones being invented: `.animate-pulse-glow`
   (earmarked back when it was added — "the handful of elements that should feel alive at

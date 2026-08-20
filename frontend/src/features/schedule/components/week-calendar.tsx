@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { DAY_LABELS, MINUTES_PER_DAY, formatHourLabel } from "@/lib/time";
+import { DAY_LABELS, MINUTES_PER_DAY, formatClockTime, formatHourLabel } from "@/lib/time";
 import { hashLabelToColor } from "@/lib/colors";
 import { findOverlappingIds } from "@/features/schedule/overlap";
 import { layoutDayBlocks } from "@/features/schedule/layout";
@@ -15,9 +15,24 @@ import type { ScheduleBlock } from "@/types";
 // convey "when" and "how long" directly, and overlapping commitments are
 // visually obvious (side-by-side lanes) rather than needing a separate
 // "Overlap" warning badge to point it out.
-const HOUR_HEIGHT = 48; // px — ~12-14 hours visible in a reasonable viewport
+//
+// First pass at this used a translucent color-tinted fill for blocks and
+// split the sticky header from the scrollable body into two elements —
+// both turned out to be mistakes (user feedback: "ugliest calendar I've
+// seen... confusing where things start and end"). Fixed here: blocks are
+// solid (bg-muted, not a color wash) so hour lines never bleed through
+// them, the header and grid share one scroll container so columns can
+// never drift out of alignment, the whole thing sits on an opaque bg-card
+// surface instead of the page's hud-grid-bg texture showing through, and
+// every block prints its actual time range as text instead of relying on
+// eyeballing position against the hour gutter.
+const HOUR_HEIGHT = 56; // px — tall enough for a 30min block to fit a time line + label
 const GRID_HEIGHT = HOUR_HEIGHT * 24;
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
+// Below this height a block only has room for one truncated line — time and
+// label share it. At or above it, the time range gets its own small line on
+// top so "when does this start/end" never requires reading the axis.
+const TWO_LINE_THRESHOLD = 34;
 
 interface WeekCalendarProps {
   blocks: ScheduleBlock[];
@@ -54,20 +69,27 @@ export function WeekCalendar({ blocks, onEdit }: WeekCalendarProps) {
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
   return (
-    <div className="overflow-x-auto rounded-lg ring-1 ring-foreground/10">
+    // A single scroll container for both axes, with the header row `sticky`
+    // *inside* it — not a separate element sitting above a second scroll
+    // container. That was the previous version's real bug: two independent
+    // boxes meant the vertical scrollbar could eat width from one but not
+    // the other, so day columns silently drifted out of alignment with
+    // their headers. One box means the header scrolls horizontally with the
+    // grid (so columns can never disagree) while staying pinned vertically.
+    <div
+      ref={scrollRef}
+      className="max-h-140 overflow-auto rounded-lg bg-card ring-1 ring-foreground/10"
+    >
       <div className="min-w-180">
-        {/* Day headers — outside the scrollable body, stays pinned above
-            it. The 12-unit spacer matches the hour-label gutter below so
-            headers line up with their columns. */}
-        <div className="flex border-b border-border bg-muted/20">
-          <div className="w-12 shrink-0" />
+        <div className="sticky top-0 z-20 flex border-b border-border bg-card">
+          <div className="w-12 shrink-0 border-r border-border" />
           {DAY_LABELS.map((dayName, dayOfWeek) => {
             const isToday = dayOfWeek === today;
             return (
               <div
                 key={dayOfWeek}
                 className={cn(
-                  "flex-1 border-l border-border px-2 py-2 text-center",
+                  "flex-1 border-l border-border px-2 py-2 text-center first:border-l-0",
                   isToday && "bg-accent-cyan/5",
                 )}
               >
@@ -84,15 +106,11 @@ export function WeekCalendar({ blocks, onEdit }: WeekCalendarProps) {
           })}
         </div>
 
-        <div ref={scrollRef} className="flex max-h-140 overflow-y-auto">
+        <div className="flex">
           {/* Hour labels */}
-          <div className="w-12 shrink-0">
+          <div className="w-12 shrink-0 border-r border-border">
             {HOURS.map((h) => (
-              <div
-                key={h}
-                className="relative border-r border-border text-right"
-                style={{ height: HOUR_HEIGHT }}
-              >
+              <div key={h} className="relative" style={{ height: HOUR_HEIGHT }}>
                 <span className="absolute top-0 right-1.5 -translate-y-1/2 font-mono text-[10px] text-muted-foreground">
                   {formatHourLabel(h)}
                 </span>
@@ -110,7 +128,7 @@ export function WeekCalendar({ blocks, onEdit }: WeekCalendarProps) {
               <div
                 key={dayOfWeek}
                 className={cn(
-                  "relative flex-1 border-l border-border",
+                  "relative flex-1 border-l border-border first:border-l-0",
                   isToday && "bg-accent-cyan/5",
                 )}
                 style={{ height: GRID_HEIGHT }}
@@ -119,7 +137,7 @@ export function WeekCalendar({ blocks, onEdit }: WeekCalendarProps) {
                   <div
                     key={h}
                     aria-hidden
-                    className="absolute inset-x-0 border-t border-border/50"
+                    className="absolute inset-x-0 border-t border-border/60"
                     style={{ top: h * HOUR_HEIGHT }}
                   />
                 ))}
@@ -127,7 +145,7 @@ export function WeekCalendar({ blocks, onEdit }: WeekCalendarProps) {
                 {isToday && (
                   <div
                     aria-hidden
-                    className="absolute inset-x-0 z-10 border-t border-accent-cyan"
+                    className="absolute inset-x-0 z-10 border-t-2 border-accent-cyan"
                     style={{ top: (nowMinutes / MINUTES_PER_DAY) * GRID_HEIGHT }}
                   />
                 )}
@@ -135,33 +153,68 @@ export function WeekCalendar({ blocks, onEdit }: WeekCalendarProps) {
                 {laidOut.map(({ block, lane, laneCount }) => {
                   const partner = findPartner(block, blocks);
                   const commitmentBlocks = partner ? [block, partner] : [block];
+                  const displayEnd = partner ? partner.endTime : block.endTime;
                   const top = (block.startTime / MINUTES_PER_DAY) * GRID_HEIGHT;
                   const height = ((block.endTime - block.startTime) / MINUTES_PER_DAY) * GRID_HEIGHT;
                   const width = 100 / laneCount;
                   const left = lane * width;
+                  const color = hashLabelToColor(block.label);
+                  const twoLines = height >= TWO_LINE_THRESHOLD;
+                  const timeText = `${formatClockTime(block.startTime)} – ${formatClockTime(displayEnd)}`;
 
                   return (
                     <button
                       key={block.id}
                       type="button"
                       onClick={() => onEdit(commitmentBlocks)}
-                      title={`${block.label}${partner ? " (overnight)" : ""}`}
+                      title={`${block.label} · ${timeText}${partner ? " (overnight)" : ""}`}
+                      // Solid bg-muted, not a translucent tint of the label
+                      // color — a wash-of-color fill let the hour lines
+                      // bleed straight through it and made every block look
+                      // washed-out against the page's grid backdrop. Color
+                      // identity now lives only in the left border + dot,
+                      // same "accent, not a flood" convention as the rest
+                      // of the app.
                       className={cn(
-                        "absolute overflow-hidden rounded-md border-l-2 px-1.5 py-0.5 text-left text-[11px] leading-tight transition-[filter] hover:brightness-125",
-                        overlapping.has(block.id) && "ring-1 ring-accent-amber/60",
+                        "absolute overflow-hidden rounded-md border-l-[3px] bg-muted px-1.5 py-1 text-left ring-1 ring-foreground/10 transition-colors hover:ring-accent-cyan/40",
+                        overlapping.has(block.id) && "ring-accent-amber/60",
                       )}
                       style={{
                         top,
-                        height: Math.max(height, 16),
+                        height: Math.max(height, 18),
                         left: `calc(${left}% + 2px)`,
                         width: `calc(${width}% - 4px)`,
-                        backgroundColor: `${hashLabelToColor(block.label)}30`,
-                        borderColor: hashLabelToColor(block.label),
+                        borderColor: color,
                       }}
                     >
-                      <span className="block truncate font-medium text-foreground">
-                        {block.label}
-                      </span>
+                      {twoLines ? (
+                        <>
+                          <span className="block truncate font-mono text-[9px] leading-tight text-muted-foreground">
+                            {timeText}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <span
+                              aria-hidden
+                              className="size-1.5 shrink-0 rounded-full"
+                              style={{ backgroundColor: color }}
+                            />
+                            <span className="truncate text-[11px] leading-tight font-medium text-foreground">
+                              {block.label}
+                            </span>
+                          </span>
+                        </>
+                      ) : (
+                        <span className="flex items-center gap-1">
+                          <span
+                            aria-hidden
+                            className="size-1.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: color }}
+                          />
+                          <span className="truncate text-[11px] leading-tight font-medium text-foreground">
+                            {block.label}
+                          </span>
+                        </span>
+                      )}
                     </button>
                   );
                 })}
