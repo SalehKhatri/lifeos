@@ -64,7 +64,7 @@ Update this as you go. Keep notes short — one line per item is enough.
 | Edit schedule block       | ✅     | `PATCH /schedule/:id` — added beyond original locked API surface, see Decisions Log; time-order re-validated against merged (existing + new) values |
 | Delete schedule block     | ✅     |       |
 | List/filter schedule      | ✅     | `GET /schedule?dayOfWeek=`, ordered by day then start time |
-| Compute today's free time | ✅     | `recommendations.service.ts`'s `computeAvailableMinutesToday` — sums not-yet-elapsed block minutes for today; overlaps not merged (known simplification) |
+| Compute today's free time | ✅     | `recommendations.service.ts`'s `computeAvailableMinutesToday` — remaining minutes in the day minus not-yet-elapsed commitment minutes; overlaps not merged (known simplification). Fixed 2026-08-19 — see Decisions Log, was inverted (returned busy time, not free time). |
 
 ## Prioritization Engine
 
@@ -671,3 +671,16 @@ Short record of decisions made and why, so you don't relitigate them later.
   mutation hook (`features/tasks/hooks.ts`) now also invalidates `["today"]`/
   `["recommendations"]`, not just `["tasks"]` — completing/editing/deleting a task from
   *anywhere* can change what Today should rank, not just actions taken from Today itself.
+- 2026-08-19 — **Bug fixed**: `computeAvailableMinutesToday` (`recommendations.service.ts`)
+  had its logic inverted — it summed not-yet-elapsed *commitment* minutes and returned that
+  as the "available" figure, i.e. it reported how busy you are, not how free you are.
+  User-reported: showed "4h 50m free" at 4:40am with commitments covering 12am–8am and
+  9:30–11am, when actual free time was closer to 14.5 hours. Worse case, not reported but
+  found while verifying the fix: a **completely free day with zero commitments returned 0
+  minutes available** (the summing loop just never runs), the exact opposite of correct.
+  Fixed: `available = (minutes remaining in the day) − (not-yet-elapsed commitment minutes)`,
+  floored at 0. Verified `scoreFit`/`buildReason` (`scoring.ts`) both already assume "bigger
+  number = more free time, task fits more easily" — the correct semantics — so no other code
+  needed to change, only this one function's formula. Confirmed the fix numerically against
+  the exact reported scenario (4:40am, 290 not-yet-elapsed commitment minutes, 870 available
+  minutes returned = 14h30m) before shipping.

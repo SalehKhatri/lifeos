@@ -12,19 +12,27 @@ const EXCLUDED_PROJECT_STATUSES: Set<string> = new Set([
   ProjectStatus.ARCHIVED,
 ]);
 
+const MINUTES_PER_DAY = 1440;
+
+// Bug fixed 2026-08-19 (user-reported: showed 4h50m "free" while actually
+// busy with commitments covering most of the morning): this was summing
+// not-yet-elapsed *commitment* minutes and returning that as the "available"
+// figure — i.e. it returned how busy you are, not how free you are. Actual
+// available time is what's left in the day minus what's already committed.
 function computeAvailableMinutesToday(
   blocks: { startTime: number; endTime: number }[],
   nowMinutes: number,
 ): number {
-  let total = 0;
+  let busy = 0;
   for (const block of blocks) {
     if (block.endTime <= nowMinutes) {
       continue; // already fully elapsed today
     }
     const remainingStart = Math.max(block.startTime, nowMinutes);
-    total += block.endTime - remainingStart;
+    busy += block.endTime - remainingStart;
   }
-  return total;
+  const remainingToday = MINUTES_PER_DAY - nowMinutes;
+  return Math.max(0, remainingToday - busy);
 }
 
 // `now` is a parameter (not read internally) so this stays deterministic and testable.
