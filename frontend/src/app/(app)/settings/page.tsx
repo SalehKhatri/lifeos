@@ -123,7 +123,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="max-w-lg space-y-6">
+    <div className="mx-auto max-w-lg space-y-6">
       <h1 className="font-heading text-2xl font-semibold">Settings</h1>
 
       <form
