@@ -185,6 +185,42 @@ reinventing per component:
   already chose specifically for a more precise/HUD feel. Single consumer at the time of the
   change (the task card above), so low-risk; do this once, systemically, rather than
   special-casing radius per usage.
+- **`/tasks` productivity pass (2026-08-19)** — the reference for what "more UX, not more
+  decoration" means on a list page: real numbers, sort/search over the actual data, and
+  keyboard shortcuts, not additional visual flourish.
+  - **Deadline urgency** (`lib/datetime.ts`'s `getDeadlineUrgency`) is a distinct signal from
+    Priority — priority is a user opinion, urgency is a fact that changes on its own as time
+    passes. A `LOW`-priority task that's actually overdue still needs to visually stand out.
+    Calendar-day comparison (not a rolling 24h window), matching the Prioritization Engine's
+    own local-day bucketing convention on the backend. Overdue → `text-destructive` (reusing
+    the existing "something's wrong" semantic, not inventing a new color); due-today →
+    `text-accent-amber` (the token's own documented purpose — warnings/due-soon). Normal stays
+    plain `text-muted-foreground`, unchanged.
+  - **Stats line** above the list (`"12 tasks shown · 2 overdue · 1 due today"`) reflects
+    whatever's currently visible (filters + search applied), not a separate global count —
+    it should always describe what's on screen, not require mental cross-referencing.
+  - **Search + sort are entirely client-side** (`features/tasks/sort.ts`) over the
+    already-fetched, already-server-filtered (status/priority/category) list — no new backend
+    endpoint for either. Fine at this scale (one user's task list), and keeps this feature
+    frontend-only. Sort defaults to soonest-deadline-first, not creation order — surfacing
+    what's actually urgent is the more useful default for a page whose whole point is getting
+    things done.
+  - **Page-level shortcuts**: `/` focuses search, `n` opens the create Sheet — bare keys, no
+    modifier (same reasoning as the command palette's digit-jump: a modifier combo would risk
+    colliding with a browser/OS-owned shortcut, a bare key doesn't). Guarded by an
+    `isTypingTarget` check so a task title can still freely contain either character while an
+    input has focus.
+  - **Gotcha hit while wiring the command palette's "New Task" → `/tasks?new=1` bridge**:
+    `react-hooks/set-state-in-effect` (a real React 19 lint rule, not a style nit) flags
+    calling a `useState` setter directly inside a `useEffect` body. The fix isn't to suppress
+    it — derive the value during render instead, via `useState`'s **lazy initializer**
+    (`useState(() => Boolean(searchParams.get("new")))`), which runs once at mount with no
+    extra render. The effect is then only responsible for cleaning the param back out of the
+    URL (`router.replace`) — a genuine external-system action, not a local `setState` call, so
+    the rule doesn't (and shouldn't) flag it. This pattern — "read a URL param into initial
+    state via lazy init, clean up via a separate effect" — is the template for any future
+    query-param bridge (Projects/Schedule quick-actions from the palette will hit the same
+    shape).
 - **Command palette instant-select: bare digit keys (1-9), not mnemonic letters or
   Cmd+letter.** The search input is focused by default when the palette opens, so a bare
   letter shortcut would just get typed as a query character instead of firing — and

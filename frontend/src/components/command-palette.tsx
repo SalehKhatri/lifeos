@@ -9,6 +9,7 @@ import {
   CalendarClock,
   Settings,
   LogOut,
+  Plus,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -40,7 +41,7 @@ interface CommandPaletteProps {
 interface PaletteCommand {
   label: string;
   icon: LucideIcon;
-  group: "Navigate" | "Session";
+  group: "Navigate" | "Actions" | "Session";
   action: (router: ReturnType<typeof useRouter>, logout: () => Promise<void>) => void;
 }
 
@@ -69,6 +70,15 @@ const COMMANDS: PaletteCommand[] = [
     icon: Settings,
     group: "Navigate",
     action: (router) => router.push("/settings"),
+  },
+  {
+    label: "New Task",
+    icon: Plus,
+    group: "Actions",
+    // Bridges into the /tasks page's local sheet state via a query param —
+    // the palette lives in the (app) layout, above any given page, so it
+    // has no direct handle on that state. See app/(app)/tasks/page.tsx.
+    action: (router) => router.push("/tasks?new=1"),
   },
   {
     label: "Log out",
@@ -129,6 +139,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     const withIndex = COMMANDS.map((command, index) => ({ command, shortcut: index + 1 }));
     return {
       Navigate: withIndex.filter((c) => c.command.group === "Navigate"),
+      Actions: withIndex.filter((c) => c.command.group === "Actions"),
       Session: withIndex.filter((c) => c.command.group === "Session"),
     };
   }, []);
@@ -145,6 +156,16 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           <CommandEmpty>No results.</CommandEmpty>
           <CommandGroup heading="Navigate">
             {groups.Navigate.map(({ command, shortcut }) => (
+              <CommandItem key={command.label} onSelect={() => run(command)}>
+                <command.icon />
+                {command.label}
+                <CommandShortcut>{shortcut}</CommandShortcut>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+          <CommandSeparator />
+          <CommandGroup heading="Actions">
+            {groups.Actions.map(({ command, shortcut }) => (
               <CommandItem key={command.label} onSelect={() => run(command)}>
                 <command.icon />
                 {command.label}

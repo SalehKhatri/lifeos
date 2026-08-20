@@ -18,3 +18,25 @@ export function fromDatetimeLocalValue(value: string | undefined): string | unde
   if (Number.isNaN(date.getTime())) return undefined;
   return date.toISOString();
 }
+
+export type DeadlineUrgency = "overdue" | "due-today" | "normal";
+
+// Deadline urgency is a *time* signal (objective, ticks forward on its own),
+// distinct from Priority (a *user* signal) — surfaced separately in the task
+// list so a LOW-priority task that's actually overdue still stands out.
+// Calendar-day comparison (not a rolling 24h window), matching the
+// Prioritization Engine's own local-day bucketing on the backend.
+export function getDeadlineUrgency(
+  deadline: string | null | undefined,
+  done: boolean,
+): DeadlineUrgency {
+  if (!deadline || done) return "normal";
+  const now = new Date();
+  const dl = new Date(deadline);
+  if (Number.isNaN(dl.getTime())) return "normal";
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfDeadlineDay = new Date(dl.getFullYear(), dl.getMonth(), dl.getDate());
+  if (dl.getTime() < now.getTime()) return "overdue";
+  if (startOfDeadlineDay.getTime() === startOfToday.getTime()) return "due-today";
+  return "normal";
+}

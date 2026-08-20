@@ -486,3 +486,15 @@ Short record of decisions made and why, so you don't relitigate them later.
   one row editable at a time, kept in local `editingId` state rather than
   per-row state, since only one edit can realistically be in flight in a
   popover this small.
+- 2026-08-19 — `/tasks` productivity pass, per user request for "real information that
+  matters, not just fancy stuff" plus shortcuts: added a stats line (shown/overdue/due-today,
+  reflecting the current filter+search view, not a separate global count), client-side search
+  (title substring) and sort (soonest-deadline default, or priority/newest — no new backend
+  endpoint, cheap over one user's list) in `features/tasks/sort.ts`, and deadline urgency
+  coloring distinct from priority (`lib/datetime.ts`'s `getDeadlineUrgency` — overdue/due-today
+  are objective, time-based facts, unlike priority which is a user opinion). Page shortcuts:
+  `/` focuses search, `n` opens the create Sheet. Also wired the command palette's long-pending
+  "New Task" entry (`?new=1` query param bridge into the page's local sheet state) — hit and
+  documented a real React 19 lint rule (`react-hooks/set-state-in-effect`) doing so; fixed via
+  `useState`'s lazy initializer rather than suppressing it. Full reasoning in
+  `frontend/DESIGN.md`.

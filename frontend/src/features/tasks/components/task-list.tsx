@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { staggerContainer, fadeInUp } from "@/lib/motion";
+import { getDeadlineUrgency } from "@/lib/datetime";
 import { useCompleteTask, useDeleteTask, useReopenTask } from "@/features/tasks/hooks";
 import type { Task, TaskPriority } from "@/types";
 
@@ -134,6 +135,7 @@ interface TaskCardProps {
 
 function TaskCard({ task, onEdit, onDelete, onComplete, onUncomplete }: TaskCardProps) {
   const done = task.status === "DONE";
+  const urgency = getDeadlineUrgency(task.deadline, done);
   const cardRef = useRef<HTMLDivElement>(null);
 
   // Cursor-tracked highlight, not a static hover state — see
@@ -257,13 +259,20 @@ function TaskCard({ task, onEdit, onDelete, onComplete, onUncomplete }: TaskCard
           )}
 
           {task.deadline && (
-            <span className="font-mono">
+            <span
+              className={cn(
+                "font-mono",
+                urgency === "overdue" && "font-semibold text-destructive",
+                urgency === "due-today" && "font-semibold text-accent-amber",
+              )}
+            >
               {new Date(task.deadline).toLocaleString(undefined, {
                 month: "short",
                 day: "numeric",
                 hour: "numeric",
                 minute: "2-digit",
               })}
+              {urgency === "overdue" && " · overdue"}
             </span>
           )}
           <span className="font-mono">{task.estimatedDuration}m</span>
