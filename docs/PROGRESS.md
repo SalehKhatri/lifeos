@@ -622,3 +622,14 @@ Short record of decisions made and why, so you don't relitigate them later.
   fields on `ScheduleBlock` (unlike Tasks/Projects), so the create/update payload split
   documented for those forms doesn't apply here. `n` shortcut + command palette "New
   Commitment" (`?new=1` bridge) added for parity with Tasks/Projects.
+- 2026-08-19 — User question: what about schedule changes / one-time events (e.g. "movies
+  Friday night")? Answered directly rather than building blind: (1) recurring schedule
+  changes need no new feature — `ScheduleBlock` is a live template, not a versioned history,
+  and the recommendation engine only ever asks "available time *today*," never historical
+  schedule state, so editing/recreating a block when a routine changes is already sufficient.
+  (2) one-time dated events are a real gap, but a deliberate v1 exclusion already locked in
+  `docs/MVP_SPEC.md` §4 ("recurring weekly blocks only") — `ScheduleBlock` has no
+  specific-date field, only `dayOfWeek`. Confirmed with user: defer rather than expand scope
+  mid-build. Made the exclusion explicit in `MVP_SPEC.md`'s Out of Scope list (previously
+  only implied by §4's "only" wording) so it reads as a documented decision, not something
+  that got missed.

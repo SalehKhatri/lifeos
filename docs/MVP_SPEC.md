@@ -193,3 +193,10 @@ GET    /recommendations
   transactional email provider, which isn't decided yet. Revisit together
   when email-sending is actually needed (see `docs/PROGRESS.md` Decisions Log,
   2026-08-14). Known gap, deliberately deferred, not an oversight.
+- One-time/dated events (e.g. "movies Friday night", a dentist appointment) on the
+  Availability calendar — `ScheduleBlock` only models a recurring weekly slot
+  (`day_of_week`), not a specific calendar date, per §4's "recurring weekly blocks only."
+  Would need an optional specific-date field alongside `day_of_week`, a migration, and a
+  recommendation-engine change (today's availability calc would need to check both
+  recurring-today and dated-today blocks). Confirmed with user 2026-08-19: defer, not scope
+  creep mid-build.
