@@ -97,7 +97,7 @@ styling anything new.
 | Command palette (Cmd/Ctrl+K)          | ✅     | brought into v1 scope deliberately (see `docs/MVP_SPEC.md` §7) — data-driven `COMMANDS` array, digit-key (1-9) instant-select, footer shortcut hints |
 | Tasks + Categories page                | ✅     | Phase 2 — filters, list, create/edit Sheet, delete, inline category manager |
 | Projects page                          | ✅     | Phase 3 — status filter, Card grid with progress bars, create/edit Sheet, delete AlertDialog, inline status control |
-| Schedule page                          | ✅     | Phase 4 — 7-day grouped view, create/edit Sheet with time inputs, delete AlertDialog |
+| Schedule page                          | ✅     | Phase 4, since redone as a week calendar grid (2026-08-19, see Decisions Log) — click-to-edit Sheet, delete moved into the Sheet's footer |
 | Today page                             | ✅     | Phase 5 — the priority page per `docs/ARCHITECTURE.md`: top-task hero card, "Up Next", today's commitments |
 | Settings page                          | ✅     | Phase 6 — profile (name + timezone combobox), danger-zone delete-account with password confirm |
 | Polish pass (Phase 7)                  | ✅     | Consistent loading/error/empty states across Tasks/Projects/Schedule/Today, destructive-styled delete confirmations everywhere, full clean rebuild |
@@ -761,3 +761,19 @@ Short record of decisions made and why, so you don't relitigate them later.
   (that day's actual occupied minutes genuinely include the tail). Weekly "N commitments"
   now counts `pairId ?? id` distinctly, so a pair reads as one commitment, not two. Full
   reasoning in `frontend/DESIGN.md`.
+- 2026-08-19 — Schedule rebuilt as a week calendar grid (`WeekCalendar`), replacing the
+  day-grouped list entirely (user chose "replace" over "toggle between both" when asked).
+  User-reported: once real commitments piled up, a stacked list per day stopped being
+  readable — a grid (days as columns, time-of-day as the vertical axis) is the standard
+  shape for exactly this problem. Also confirmed: default-scrolled to roughly an hour before
+  the week's earliest commitment (not always showing empty 2am-6am space), full 24h still
+  reachable by scrolling. New `features/schedule/layout.ts` (`layoutDayBlocks`) gives
+  overlapping commitments side-by-side lanes via a standard greedy interval-scheduling
+  column layout — good enough for a personal schedule's realistic overlap counts, not
+  solving optimal enterprise-calendar column-packing. Delete moved from a per-block dropdown
+  menu (grid blocks can be too small to host one) into the edit Sheet's own footer, wired
+  back up to the page's existing shared confirmation dialog. An overnight pair's two halves
+  no longer need special "hide the tail, merge into the head's row" display logic — two
+  ordinary segments across adjacent day columns already read correctly as one continuous
+  shift, which is the grid doing for free what the list needed real logic for. Deleted
+  `schedule-list.tsx` (fully superseded). Full reasoning in `frontend/DESIGN.md`.

@@ -86,7 +86,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   href={link.href}
                   className={cn(
                     "group/nav-link relative rounded-md px-3 py-1.5 font-heading text-xs font-semibold tracking-widest uppercase transition-colors",
-                    active ? "text-accent-cyan" : "text-muted-foreground hover:text-foreground",
+                    active
+                      ? "text-accent-cyan"
+                      : "text-muted-foreground hover:text-foreground",
                     FOCUS_RING,
                   )}
                 >
@@ -139,13 +141,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 {/* Base UI requires Label/Item to live inside a Group —
                     unlike Radix, where Label works standalone. */}
                 <DropdownMenuGroup>
-                  <DropdownMenuLabel>{user?.name ?? user?.email}</DropdownMenuLabel>
+                  <DropdownMenuLabel>
+                    {user?.name ?? user?.email}
+                  </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => router.push("/settings")}>
                     <Settings className="mr-2 size-4" />
                     Settings
                   </DropdownMenuItem>
-                  <DropdownMenuItem variant="destructive" onClick={handleLogout}>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={handleLogout}
+                  >
                     <LogOut className="mr-2 size-4" />
                     Log out
                   </DropdownMenuItem>
@@ -155,7 +162,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
+        {children}
+      </main>
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
     </div>
   );

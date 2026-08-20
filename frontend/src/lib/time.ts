@@ -38,6 +38,15 @@ export function formatClockTime(minutes: number): string {
   return `${h12}:${String(m).padStart(2, "0")} ${period}`;
 }
 
+// Compact hour-only label for the calendar grid's time axis ("8 AM", not
+// "8:00 AM" — the grid's rows are already one per hour, so the ":00" is
+// redundant there in a way it isn't for formatClockTime's other callers).
+export function formatHourLabel(hour: number): string {
+  const period = hour >= 12 ? "PM" : "AM";
+  const h12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${h12} ${period}`;
+}
+
 export function formatDuration(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;

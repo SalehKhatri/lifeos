@@ -288,137 +288,65 @@ reinventing per component:
   pattern as the `?new=1` bridge). Deliberately *not* stripped from the URL afterwards,
   unlike `?new=1` — a filter is worth keeping bookmarkable/shareable/refresh-safe, unlike a
   one-shot "open this sheet" signal.
-- **Schedule (`features/schedule/`)** reuses the same conventions (toast copy, `Select.Value`
-  items map, `?new=1` bridge) but a genuinely different layout: **grouped by day, all 7 days
-  always rendered**, not a list or grid you filter down — the whole point (per the original
-  plan) is seeing the whole week's shape at a glance, and an empty day ("fully free") is real
-  information worth showing, not a state worth hiding. Today's section gets a small accent-cyan
-  label + "Today" tag (the one thing on this page that's objectively special, so it's the one
-  thing that gets a color treatment — same "glow/color reserved for what matters" rule as
-  everywhere else). Time fields are native `<input type="time">` (already includes a time
-  picker as part of the browser's own control) converted to/from the backend's
-  minutes-since-midnight via `lib/time.ts` — a new commitment defaults to the *next full hour*
-  on today's day-of-week (not the exact current minute — "3:47 PM–4:47 PM" reads oddly for a
-  recurring commitment), computed fresh on open like Task/Project deadlines defaulting to
-  "now". No nullable-on-update fields on `ScheduleBlock`, so the create/update payload split
-  documented above (Tasks/Projects) isn't needed here — one shared payload object is fine.
-- **Schedule productivity pass (2026-08-19)**, four additions after "we can work a bit more
-  on schedule" — all real information or real friction reduction, none of it decoration:
-  - **Multi-day quick-create.** The Day field is a row of toggle buttons, not a `Select` —
-    create mode allows selecting several at once (e.g. "Work" for Mon-Fri in one action,
-    instead of creating the identical block 5 times); edit mode still behaves as a
-    single-select (a click replaces the selection) since it operates on one existing block.
-    Backed by `useCreateScheduleBlocks` (plural — takes an array, always, even for a single
-    day), which fires the creates via `Promise.allSettled` and reports one consolidated
-    toast rather than one per day. `allSettled`, not `all`: if one create in the batch fails
-    (rare — the payload's validity doesn't depend on which day it's for), the ones that
-    succeeded shouldn't be hidden by treating the whole batch as failed.
-  - **Overlap warning** (`features/schedule/overlap.ts`) — purely client-side, since the
-    backend deliberately allows overlapping blocks on the same day (`docs/MVP_SPEC.md` #4 —
-    left to the recommendation engine's interval merging, not Schedule's job at write time).
-    O(n²) pairwise interval check per day, not sort-then-check-adjacent-pairs: a long block
-    can fully contain a short one with an unrelated third block in between after sorting by
-    start time, which an adjacent-only check would miss. Small per-day block counts make
-    O(n²) free. Surfaced as an amber "Overlap" tag on the day header plus a warning icon on
-    each affected row — a warning, not a validation error, so it never blocks saving.
-  - **Per-block color coding** (`lib/colors.ts`'s `hashLabelToColor`) — deterministic, not
-    random, unlike `randomCategoryColor`: the same label always resolves to the same color
-    across renders/reloads, without needing an actual color field on `ScheduleBlock` (it has
-    none). Same saturation/lightness band as the app's other generated colors, but fixed
-    rather than ranged, so two labels that happen to hash near the same hue don't also drift
-    apart in vividness.
-  - **Daily timeline bar** — a compact 24h strip per day showing each block as a proportional
-    colored segment (same `hashLabelToColor` as the row list, so the timeline and the
-    detailed rows read as one system, not two independent colorings of the same data), plus a
-    thin marker for the current time on today's strip. Lets you see a day's actual shape
-    ("morning free, afternoon packed") at a glance instead of reading every time range as
-    text — the whole reason this page groups by day in the first place, taken one step
-    further.
-  - **Day sections needed a real fill, not a border — the page's `.hud-grid-bg` texture ate
-    the divider.** `space-y-4` between 7 stacked day groups read as one continuous list
-    (user feedback: "everything blends together"); a `border-b` fix attempted first didn't
-    help either, for a reason specific to this page: the authenticated shell's background
-    grid texture sits right behind `/schedule`, and a 1px line just blends into that existing
-    grid instead of reading as a boundary. Fixed with an actual fill per day
-    (`rounded-lg bg-muted/20 p-3`) — an opaque-enough panel blocks the grid and reads as a
-    real section, which a border can't do against a textured background. Kept deliberately
-    subtle (`bg-muted/20`, not `bg-card`) so it doesn't read as a card containing cards — the
-    commitment rows inside are still the more prominent `bg-card` surface; this is just the
-    group they sit in, one visual tier below.
-- **Overnight commitments (spanning midnight) are split into two real blocks at create
-  time, not a new data-model concept.** User-reported: a 4pm-2am Monday shift couldn't be
-  entered — `ScheduleBlock.startTime`/`endTime` are minutes within one calendar day
-  (0-1439), so `endTime < startTime` was rejected outright. Rather than changing the data
-  model (which would also mean changing the availability calc and Today's commitments
-  query to understand a block that "continues from yesterday"), the **create** form now
-  treats `endTime < startTime` as "spans midnight" and auto-splits it into two ordinary
-  same-day blocks (today's evening half ending at `MINUTES_PER_DAY`, tomorrow's
-  early-morning half starting at 0) — reusing the exact multi-day batch-create machinery
-  already built for Mon-Fri-style selections (`useCreateScheduleBlocks`). Applied per
-  selected day, including the day-of-week wraparound (`(day + 1) % 7`, so Saturday's
-  "tomorrow" is correctly Sunday). Every other part of the app — overlap detection, the
-  daily timeline bar, the availability calc, Today's commitments — needed zero changes,
-  because from their perspective these are just two normal single-day blocks; the "this is
-  one shift really" framing only exists in the create form and the toast copy. **Edit mode
-  keeps the strict same-day check** (`startTime < endTime`), since it operates on a single
-  existing block and has no way to represent half of a spanning pair — editing either half
-  of an overnight shift edits just that half, same as editing one day of a multi-day
-  selection already did. `useCreateScheduleBlocks`'s toast now counts *distinct days
-  touched* (`new Set(inputs.map(i => i.dayOfWeek)).size`) rather than raw block count, so a
-  single overnight entry correctly reads "Created "X" for 2 days," not "for 2 days" meaning
-  something wrong (the shift genuinely touches two calendar days) — same wording, same
-  reasoning as an actual multi-day selection.
-- **Follow-up bug, caught the same day: the split above was losing exactly 1 minute per
-  overnight commitment.** `endTime`'s valid range was 0-1439 (shared with `startTime`), so
-  the evening half's end got capped at 1439 (11:59 PM) — one minute short of true midnight
-  (minute 1440). User-reported: a week of overnight shifts totaled 4 minutes short of what
-  was actually entered (roughly 1 minute × number of overnight splits that week). Fixed at
-  the schema level (`schedule.validation.ts`): `startTime` and `endTime` are no longer the
-  same range — `startTime` stays 0-1439 (starting exactly at midnight-of-next-day would be
-  meaningless, that's just minute 0 of that day), but `endTime` now allows up to 1440,
-  since a block can legitimately *end* exactly at midnight. The frontend's split now uses
-  `endTime: MINUTES_PER_DAY` (1440) for the evening half instead of `MINUTES_PER_DAY - 1`.
-  Verified numerically before shipping: 9pm-2am now splits into an exact 3h00m + 2h00m = 5h
-  total, matching the entered range precisely (previously 2h59m + 2h00m = 4h59m). No other
-  code needed to change — `formatClockTime(1440)` already renders as "12:00 AM" (the
-  correct display for "reaches midnight" as an end time), and every duration calculation is
-  plain subtraction that works the same regardless of the specific numbers involved.
-- **Overnight commitments are now properly linked (`ScheduleBlock.pairId`), replacing the
-  "two independent, unmanaged rows" version above.** User-reported real friction: managing
-  the two halves manually (edit both if the time changes, delete both to remove the whole
-  shift) after the split feature above shipped. Chose the backend-link option over a
-  frontend-only heuristic-merge, since the latter risks two genuinely unrelated commitments
-  that happen to match the pattern (same label, adjacent days, midnight boundary) getting
-  incorrectly treated as a pair.
-  - **`pairId` is an opaque client-generated tag** (`crypto.randomUUID()`), not a real
-    foreign key/relation — deliberately simple; it's a grouping label, not a referential
-    link one row "points to." Migration added a single nullable, indexed column
-    (`schedule.prisma`), no backfill needed (every existing row is a plain, unpaired block).
-  - **Editing is create-then-delete, not a per-field PATCH, whenever the commitment's
-    *shape* might change** (a plain block becoming a pair, a pair becoming a plain block,
-    or a pair's times shifting enough that both halves need recomputing) —
-    `useReplaceScheduleBlocks`. Reconciling four different before/after shape combinations
-    field-by-field would be real complexity; recomputing "what block(s) do the new values
-    need" and diffing against "what block(s) existed before" handles all four uniformly.
-    **Create-first, not delete-first**: if the new block(s) fail to create, the old ones are
-    still there and nothing is lost; if only some of the new ones succeed, those get rolled
-    back rather than leaving a mix of old and partial-new data — worst case, the edit
-    silently doesn't take effect, never something worse than before. A plain block staying a
-    plain block still uses a simple PATCH (`useUpdateScheduleBlock`, unchanged) — no reason
-    to pay the delete+recreate cost for the common case that never needed it.
-  - **Display**: a pair's two halves are always on different days by construction, so within
-    a single day's row list, a "tail" half (starts at minute 0, shares a `pairId`) is hidden
-    — it's represented by its "head" half's row on the *previous* day, shown with the true
-    combined time range and a small "overnight" tag. The **daily timeline bar** and **each
-    day's committed-minutes total** still use the raw, unmerged per-day blocks (including
-    tails) — those are about *this specific day's* actual occupied minutes, which
-    genuinely includes the early-morning tail, unlike the row list which is about *how many
-    distinct commitments* exist. An orphaned head or tail (partner missing, shouldn't happen
-    but shouldn't become invisible if it somehow does) falls back to rendering as its own
-    plain row rather than disappearing.
-  - **Weekly "N commitments" stat** now counts `new Set(blocks.map(b => b.pairId ?? b.id)).size`
-    — a pair collapses to one entry, an unpaired block counts on its own, one line handles
-    both cases.
+- **Schedule (`features/schedule/`) is a week calendar grid (`WeekCalendar`), not a list.**
+  It went through several iterations first — grouped-by-day list → list with a timeline bar
+  → this — the full history (day panels, the border-vs-fill divider fix, the overnight-split
+  feature, its 1-minute-loss bug, then linking the split via `pairId`) is in
+  `docs/PROGRESS.md`'s Decisions Log; this section describes what's actually there now.
+  User-reported: once there were enough real commitments, a stacked list per day stopped
+  being readable — position and duration are exactly what a list can't convey, which is
+  exactly what a grid is for. Days are columns, time-of-day is the vertical axis
+  (`HOUR_HEIGHT` px/hour, `features/schedule/components/week-calendar.tsx`); the grid opens
+  scrolled to about an hour before the week's earliest commitment (not always-midnight, not
+  forcing a scroll through empty 2am-6am space) via `scrollRef.scrollTo` in a mount-only
+  effect — computed once, doesn't yank the scroll position if something's added elsewhere
+  in the week later.
+  - **Overlapping commitments get side-by-side lanes**, not stacked on top of each other
+    illegibly — `features/schedule/layout.ts`'s `layoutDayBlocks`, a standard greedy
+    interval-scheduling column layout (group into overlap clusters first via
+    `features/schedule/overlap.ts`'s pairwise check, then assign each cluster's blocks the
+    first free lane in start-time order). This isn't solving optimal interval-graph
+    column-packing for enterprise-calendar density — a personal schedule's realistic overlap
+    counts don't need that, and correctness at this scale matters more than packing
+    efficiency. Overlapping blocks additionally get a subtle amber ring (same `overlap.ts`
+    check as before) as a secondary cue, though the grid's own side-by-side layout already
+    makes a conflict visually obvious — the standalone "Overlap" day-header badge from the
+    list-view era is gone since the grid itself now answers that question spatially.
+  - **Click a block to edit it directly — no per-block dropdown menu.** Blocks in a dense
+    grid are often too small to comfortably host a menu trigger; clicking opens
+    `ScheduleFormSheet` right away (the calendar-native interaction, same as every mainstream
+    calendar app), and **Delete moved into the sheet's own footer** (a destructive button
+    next to Save, only rendered in edit mode) rather than living in a menu that no longer
+    exists. The sheet's `onDelete` callback still routes up to the page for the actual
+    confirmation dialog + mutation — same "parent owns mutations, child gets callbacks"
+    convention as everywhere else.
+  - **An overnight pair's two halves render as two ordinary segments — no merging needed.**
+    Unlike the old list (where a pair's "tail" half had to be hidden and represented by its
+    "head" half's row, since a flat list has no way to show "this continues off-screen"), a
+    grid's two adjacent day columns showing a segment ending at the bottom edge of one and
+    another starting at the top edge of the next *is* the natural, correct visualization of
+    "this shift crosses midnight" — spatial continuity does the explaining, no special
+    display logic required. Clicking either half still resolves the full pair (`pairId`) and
+    opens both for editing/deleting together.
+  - **`ScheduleBlock.pairId`** is an opaque client-generated tag (`crypto.randomUUID()`), not
+    a real foreign key/relation — a grouping label, not a referential link one row "points
+    to." Editing goes through create-then-delete (`useReplaceScheduleBlocks`) whenever the
+    commitment's *shape* might change (plain ↔ pair, or a pair's times shifting enough that
+    both halves need recomputing) rather than a per-field PATCH, since reconciling four
+    different before/after shape combinations field-by-field would be real complexity —
+    recomputing "what block(s) do the new values need" and diffing against "what existed
+    before" handles all four uniformly. Create-first, not delete-first, so a failed create
+    never loses the original data; a partial success rolls back rather than leaving mixed
+    old/new state. A plain block staying a plain block still uses a simple PATCH
+    (`useUpdateScheduleBlock`) — no reason to pay the delete+recreate cost for the common
+    case that never needed it. Weekly "N commitments" counts
+    `new Set(blocks.map(b => b.pairId ?? b.id)).size` — a pair collapses to one entry.
+  - **Multi-day quick-create** (Day field is toggle buttons, not a `Select`; create mode
+    allows several at once, e.g. "Work" Mon-Fri in one action) and **per-block color coding**
+    (`lib/colors.ts`'s `hashLabelToColor` — deterministic, not random, so the same label
+    always gets the same color without needing an actual color field on `ScheduleBlock`)
+    carried over unchanged from the list-view era; both were already display/input-layer
+    concerns independent of list-vs-grid.
 - **Today (`app/(app)/today/`)** is where two conventions written earlier in this document
   finally get used for the first time, rather than new ones being invented: `.animate-pulse-glow`
   (earmarked back when it was added — "the handful of elements that should feel alive at

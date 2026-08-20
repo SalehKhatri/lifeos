@@ -6,9 +6,19 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QueryErrorState } from "@/components/query-error-state";
-import { ScheduleList } from "@/features/schedule/components/schedule-list";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { WeekCalendar } from "@/features/schedule/components/week-calendar";
 import { ScheduleFormSheet } from "@/features/schedule/components/schedule-form-sheet";
-import { useScheduleBlocks } from "@/features/schedule/hooks";
+import { useDeleteScheduleBlocks, useScheduleBlocks } from "@/features/schedule/hooks";
 import { formatDuration } from "@/lib/time";
 import type { ScheduleBlock } from "@/types";
 
@@ -23,13 +33,19 @@ export default function SchedulePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: blocks, isLoading, isError, refetch } = useScheduleBlocks();
+  const deleteBlocks = useDeleteScheduleBlocks();
   // Lazy initializer, not an effect — see app/(app)/tasks/page.tsx's
   // identical pattern for why (react-hooks/set-state-in-effect).
   const [sheetOpen, setSheetOpen] = useState(() => Boolean(searchParams.get("new")));
   // Whichever commitment is being edited, as its full block set — 1 for an
-  // ordinary block, 2 for an overnight pair. ScheduleList has already
+  // ordinary block, 2 for an overnight pair. WeekCalendar has already
   // resolved the pair (if any) before calling onEdit.
   const [editingBlocks, setEditingBlocks] = useState<ScheduleBlock[]>([]);
+  // The calendar grid opens the edit sheet directly on click (no per-block
+  // menu), so delete lives inside that sheet — this is the confirmation it
+  // triggers, same shared-AlertDialog-at-the-page-level pattern as every
+  // other delete flow in the app.
+  const [deleteTarget, setDeleteTarget] = useState<ScheduleBlock[] | null>(null);
 
   useEffect(() => {
     if (searchParams.get("new")) {
@@ -99,18 +115,50 @@ export default function SchedulePage() {
       )}
 
       {isLoading ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-16 w-full" />
-          ))}
-        </div>
+        <Skeleton className="h-150 w-full" />
       ) : isError ? (
         <QueryErrorState onRetry={() => refetch()} />
       ) : (
-        <ScheduleList blocks={blocks ?? []} onEdit={openEdit} />
+        <WeekCalendar blocks={blocks ?? []} onEdit={openEdit} />
       )}
 
-      <ScheduleFormSheet open={sheetOpen} onOpenChange={setSheetOpen} blocks={editingBlocks} />
+      <ScheduleFormSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        blocks={editingBlocks}
+        onDelete={
+          editingBlocks.length > 0
+            ? () => {
+                setSheetOpen(false);
+                setDeleteTarget(editingBlocks);
+              }
+            : undefined
+        }
+      />
+
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this commitment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              &ldquo;{deleteTarget?.[0]?.label}&rdquo; will be permanently deleted.
+              {deleteTarget && deleteTarget.length === 2 && " It runs past midnight — both halves will be removed together."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (deleteTarget) deleteBlocks.mutate(deleteTarget);
+                setDeleteTarget(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

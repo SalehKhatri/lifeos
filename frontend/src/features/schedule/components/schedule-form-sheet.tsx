@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useForm, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Trash2 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -81,7 +82,7 @@ function defaultValuesForNow(): ScheduleFormValues {
 // `blocks` holds every row that makes up the commitment being edited: 0
 // (create), 1 (an ordinary same-day block), or 2 (an overnight pair, head
 // first — the caller is responsible for resolving the pair via `pairId`
-// before opening this sheet, see schedule-list.tsx).
+// before opening this sheet, see week-calendar.tsx).
 function valuesFromBlocks(blocks: ScheduleBlock[]): ScheduleFormValues {
   const [head, tail] = blocks;
   return {
@@ -98,9 +99,20 @@ interface ScheduleFormSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   blocks?: ScheduleBlock[]; // empty/omitted = create mode
+  // Only relevant (and rendered) in edit mode — the calendar grid opens
+  // this sheet directly on click, with no separate per-block menu, so
+  // delete lives here instead. The page still owns the actual delete
+  // confirmation/mutation, same "parent owns mutations, child gets
+  // callbacks" convention as everywhere else in the app.
+  onDelete?: () => void;
 }
 
-export function ScheduleFormSheet({ open, onOpenChange, blocks = [] }: ScheduleFormSheetProps) {
+export function ScheduleFormSheet({
+  open,
+  onOpenChange,
+  blocks = [],
+  onDelete,
+}: ScheduleFormSheetProps) {
   const createBlocks = useCreateScheduleBlocks();
   const updateBlock = useUpdateScheduleBlock();
   const replaceBlocks = useReplaceScheduleBlocks();
@@ -280,8 +292,14 @@ export function ScheduleFormSheet({ open, onOpenChange, blocks = [] }: ScheduleF
             </div>
           </div>
 
-          <SheetFooter>
-            <Button type="submit" disabled={isPending}>
+          <SheetFooter className="flex-row">
+            {isEditing && onDelete && (
+              <Button type="button" variant="destructive" onClick={onDelete} disabled={isPending}>
+                <Trash2 />
+                Delete
+              </Button>
+            )}
+            <Button type="submit" disabled={isPending} className="flex-1">
               {isPending ? "Saving…" : isEditing ? "Save changes" : "Create commitment"}
             </Button>
           </SheetFooter>
