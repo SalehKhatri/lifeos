@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import * as tasksApi from "./api";
 import type { TaskFilters, TaskInput, UpdateTaskInput } from "./api";
 import { ApiError } from "@/lib/api-client";
-import type { Task } from "@/types";
+import type { Task, TaskStatus } from "@/types";
 
 export const taskKeys = {
   all: ["tasks"] as const,
@@ -84,13 +84,21 @@ export function useCompleteTask() {
   });
 }
 
-export function useReopenTask() {
+// General status-only update, same no-success-toast treatment as complete
+// above — this backs both "reopen" (from the checkbox) and the inline
+// To Do/In Progress toggle on the card, neither of which should need a
+// trip through the edit Sheet just to move a task along. A quick status
+// click is exactly as frequent/low-stakes as the checkbox, so it gets the
+// same quiet treatment, not the edit form's "Updated ..." toast.
+export function useSetTaskStatus() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (task: Task) => tasksApi.updateTask(task.id, { status: "TODO" }),
+    mutationFn: ({ task, status }: { task: Task; status: TaskStatus }) =>
+      tasksApi.updateTask(task.id, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: taskKeys.all });
     },
-    onError: (err, task) => toast.error(errorMessage(err, `Couldn't reopen "${task.title}"`)),
+    onError: (err, { task }) =>
+      toast.error(errorMessage(err, `Couldn't update "${task.title}"`)),
   });
 }

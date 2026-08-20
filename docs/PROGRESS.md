@@ -498,3 +498,10 @@ Short record of decisions made and why, so you don't relitigate them later.
   documented a real React 19 lint rule (`react-hooks/set-state-in-effect`) doing so; fixed via
   `useState`'s lazy initializer rather than suppressing it. Full reasoning in
   `frontend/DESIGN.md`.
+- 2026-08-19 — User-reported friction: moving a task to `TODO`/`IN_PROGRESS` required opening
+  the edit Sheet just to change one field. Fixed by turning the previously-decorative
+  "In Progress" pulsing dot into a real one-click toggle button on the card itself (`TODO` ↔
+  `IN_PROGRESS`; `DONE` stays exclusively the checkbox's job). Generalized `useReopenTask` into
+  `useSetTaskStatus({ task, status })`, which now backs both the checkbox's "reopen" and this
+  new toggle — same no-success-toast treatment as `useCompleteTask` (frequent, low-stakes,
+  checkbox-adjacent, not a deliberate form save).

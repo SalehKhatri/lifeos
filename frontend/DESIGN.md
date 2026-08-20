@@ -172,6 +172,15 @@ reinventing per component:
   `FolderKanban` icon, since it's structural (one fixed meaning) rather than user-colored. An
   `IN_PROGRESS` task also gets a small `animate-pulse` cyan dot next to its title — the list had
   no visual distinction between `TODO` and `IN_PROGRESS` before, only done-vs-not.
+- **To Do ↔ In Progress is a one-click toggle right on the card, not an edit-Sheet trip.**
+  What was a passive "In Progress" pulsing dot (decoration only) is now that same dot as a
+  real button — click to move the status along, hover for a faint cyan tint previewing the
+  click (same "reactive, not static" family as everything else on this card). `Done` stays
+  exclusively the checkbox's job (one control per transition, not two fighting over the same
+  state) — this toggle only ever moves between `TODO`/`IN_PROGRESS`. Backed by a general
+  `useSetTaskStatus` hook (`features/tasks/hooks.ts`) that also now backs "reopen" from the
+  checkbox — same no-success-toast treatment as `useCompleteTask`, since a quick status click
+  is exactly as frequent/low-stakes as the checkbox itself, not a deliberate form save.
 - **The complete checkbox is a real toggle, not a one-way action.** It was originally disabled
   once checked ("full status control via edit" was the escape hatch) — user feedback pointed
   out an accidental click had no easy way back. Unchecking now reverts the task to `TODO` via

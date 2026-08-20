@@ -25,7 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 import { staggerContainer, fadeInUp } from "@/lib/motion";
 import { getDeadlineUrgency } from "@/lib/datetime";
-import { useCompleteTask, useDeleteTask, useReopenTask } from "@/features/tasks/hooks";
+import { useCompleteTask, useDeleteTask, useSetTaskStatus } from "@/features/tasks/hooks";
 import type { Task, TaskPriority } from "@/types";
 
 // Priority reads as a system-level HUD signal (a colored edge + a small
@@ -61,7 +61,7 @@ interface TaskListProps {
 
 export function TaskList({ tasks, onEdit }: TaskListProps) {
   const completeTask = useCompleteTask();
-  const reopenTask = useReopenTask();
+  const setStatus = useSetTaskStatus();
   const deleteTask = useDeleteTask();
   // A single shared AlertDialog, not one per row, controlled by which task
   // (if any) is pending deletion — deliberately NOT an AlertDialogTrigger
@@ -93,7 +93,13 @@ export function TaskList({ tasks, onEdit }: TaskListProps) {
               onEdit={() => onEdit(task)}
               onDelete={() => setDeleteTarget(task)}
               onComplete={() => completeTask.mutate(task)}
-              onUncomplete={() => reopenTask.mutate(task)}
+              onUncomplete={() => setStatus.mutate({ task, status: "TODO" })}
+              onToggleInProgress={() =>
+                setStatus.mutate({
+                  task,
+                  status: task.status === "IN_PROGRESS" ? "TODO" : "IN_PROGRESS",
+                })
+              }
             />
           </motion.div>
         ))}
@@ -131,9 +137,17 @@ interface TaskCardProps {
   onDelete: () => void;
   onComplete: () => void;
   onUncomplete: () => void;
+  onToggleInProgress: () => void;
 }
 
-function TaskCard({ task, onEdit, onDelete, onComplete, onUncomplete }: TaskCardProps) {
+function TaskCard({
+  task,
+  onEdit,
+  onDelete,
+  onComplete,
+  onUncomplete,
+  onToggleInProgress,
+}: TaskCardProps) {
   const done = task.status === "DONE";
   const urgency = getDeadlineUrgency(task.deadline, done);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -210,12 +224,37 @@ function TaskCard({ task, onEdit, onDelete, onComplete, onUncomplete }: TaskCard
 
       <div className={cn("relative z-10 min-w-0 flex-1 space-y-1.5", done && "opacity-70")}>
         <div className="flex items-center gap-2">
-          {task.status === "IN_PROGRESS" && (
-            <span
-              aria-hidden
-              className="size-1.5 shrink-0 animate-pulse rounded-full bg-accent-cyan"
-              title="In progress"
-            />
+          {/* One click to move between To Do and In Progress — no need to
+              open the edit Sheet just to nudge status along. Done is still
+              exclusively the checkbox's job (keeps one control per state
+              transition, instead of two fighting over the same thing). */}
+          {!done && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleInProgress();
+              }}
+              aria-label={
+                task.status === "IN_PROGRESS" ? "Mark as to do" : "Mark as in progress"
+              }
+              title={
+                task.status === "IN_PROGRESS"
+                  ? "In progress — click to move back to To Do"
+                  : "Click to mark as in progress"
+              }
+              className="group/status -ml-1 shrink-0 rounded-full p-1 transition-colors hover:bg-accent-cyan/10"
+            >
+              <span
+                aria-hidden
+                className={cn(
+                  "block size-1.5 rounded-full transition-colors",
+                  task.status === "IN_PROGRESS"
+                    ? "animate-pulse bg-accent-cyan"
+                    : "bg-border group-hover/status:bg-accent-cyan/50",
+                )}
+              />
+            </button>
           )}
           <p className={cn("truncate font-medium", done && "text-muted-foreground line-through")}>
             {task.title}
