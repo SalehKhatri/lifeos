@@ -155,6 +155,14 @@ reinventing per component:
   `FolderKanban` icon, since it's structural (one fixed meaning) rather than user-colored. An
   `IN_PROGRESS` task also gets a small `animate-pulse` cyan dot next to its title — the list had
   no visual distinction between `TODO` and `IN_PROGRESS` before, only done-vs-not.
+- **The complete checkbox is a real toggle, not a one-way action.** It was originally disabled
+  once checked ("full status control via edit" was the escape hatch) — user feedback pointed
+  out an accidental click had no easy way back. Unchecking now reverts the task to `TODO` via
+  the same `useUpdateTask` mutation the edit form uses (not a special-cased revert). Also fixed
+  while in there: the checkbox was fading to near-invisible when done, because the outer
+  card's `opacity-60` and the checkbox's own `disabled:opacity-50` were compounding
+  (0.6 × 0.5 ≈ 0.3 opacity) — the checkbox is the primary control here, so it now stays at full
+  opacity always; only the title/metadata content wrapper dims (`opacity-70`) to signal "done."
 - **`Badge`'s radius fixed from shadcn's default pill (`rounded-4xl`) to `rounded-sm`** — a
   full pill reads as a generic SaaS tag, at odds with the sharper `--radius` token this theme
   already chose specifically for a more precise/HUD feel. Single consumer at the time of the

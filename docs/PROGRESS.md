@@ -454,3 +454,13 @@ Short record of decisions made and why, so you don't relitigate them later.
   `TODO`). Also fixed `Badge`'s hardcoded `rounded-4xl` pill shape to
   `rounded-sm`, matching this theme's deliberately sharper `--radius` token.
   Full reasoning in `frontend/DESIGN.md`.
+- 2026-08-19 — Task complete checkbox reworked, two user-reported problems:
+  (1) it was almost invisible once checked — the card's `opacity-60` (done
+  state) and the checkbox's own `disabled:opacity-50` (it was disabled once
+  checked) were compounding to ~0.3 opacity. (2) it was a one-way action
+  from the list (disabled once done, no undo short of opening the edit
+  form) — a mis-click had no easy recovery. Fixed both together: the
+  checkbox is a real toggle now (unchecking reverts the task to `TODO` via
+  the same `useUpdateTask` mutation the edit form already uses, no new
+  endpoint/hook needed) and always renders at full opacity — only the
+  title/metadata content wrapper dims when done, not the checkbox itself.

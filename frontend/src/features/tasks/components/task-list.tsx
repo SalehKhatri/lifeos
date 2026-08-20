@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { staggerContainer, fadeInUp } from "@/lib/motion";
-import { useCompleteTask, useDeleteTask } from "@/features/tasks/hooks";
+import { useCompleteTask, useDeleteTask, useUpdateTask } from "@/features/tasks/hooks";
 import type { Task, TaskPriority } from "@/types";
 
 // Priority reads as a system-level HUD signal (a colored edge + a small
@@ -60,6 +60,7 @@ interface TaskListProps {
 
 export function TaskList({ tasks, onEdit }: TaskListProps) {
   const completeTask = useCompleteTask();
+  const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
   // A single shared AlertDialog, not one per row, controlled by which task
   // (if any) is pending deletion — deliberately NOT an AlertDialogTrigger
@@ -91,6 +92,9 @@ export function TaskList({ tasks, onEdit }: TaskListProps) {
               onEdit={() => onEdit(task)}
               onDelete={() => setDeleteTarget(task)}
               onComplete={() => completeTask.mutate(task.id)}
+              onUncomplete={() =>
+                updateTask.mutate({ id: task.id, input: { status: "TODO" } })
+              }
             />
           </motion.div>
         ))}
@@ -127,9 +131,10 @@ interface TaskCardProps {
   onEdit: () => void;
   onDelete: () => void;
   onComplete: () => void;
+  onUncomplete: () => void;
 }
 
-function TaskCard({ task, onEdit, onDelete, onComplete }: TaskCardProps) {
+function TaskCard({ task, onEdit, onDelete, onComplete, onUncomplete }: TaskCardProps) {
   const done = task.status === "DONE";
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -151,10 +156,7 @@ function TaskCard({ task, onEdit, onDelete, onComplete }: TaskCardProps) {
     <div
       ref={cardRef}
       onPointerMove={handlePointerMove}
-      className={cn(
-        "group/task relative flex items-center gap-3 overflow-hidden rounded-lg bg-card py-3 pr-3 pl-4 text-sm text-card-foreground ring-1 ring-foreground/10 transition-transform duration-150 hover:-translate-y-0.5",
-        done && "opacity-60",
-      )}
+      className="group/task relative flex items-center gap-3 overflow-hidden rounded-lg bg-card py-3 pr-3 pl-4 text-sm text-card-foreground ring-1 ring-foreground/10 transition-transform duration-150 hover:-translate-y-0.5"
     >
       {/* Priority edge — a HUD status stripe, not just a badge in the text. */}
       <span
@@ -186,17 +188,22 @@ function TaskCard({ task, onEdit, onDelete, onComplete }: TaskCardProps) {
         }}
       />
 
+      {/* A real toggle, not a one-way "complete" button — unchecking a done
+          task reverts it to TODO. A disabled, faded-out checkbox after
+          completion left no way to recover from an accidental click short of
+          opening the edit form; a checkbox that just works both ways is the
+          simpler fix. Kept at full opacity regardless of done state (see
+          the content wrapper below) since it's the primary control here —
+          fading it out alongside the text made it hard to even see it was
+          checked. */}
       <Checkbox
         checked={done}
-        onCheckedChange={() => {
-          if (!done) onComplete();
-        }}
-        aria-label={done ? "Completed" : "Mark complete"}
-        disabled={done}
+        onCheckedChange={(checked) => (checked ? onComplete() : onUncomplete())}
+        aria-label={done ? "Mark as not done" : "Mark complete"}
         className="relative z-10"
       />
 
-      <div className="relative z-10 min-w-0 flex-1 space-y-1.5">
+      <div className={cn("relative z-10 min-w-0 flex-1 space-y-1.5", done && "opacity-70")}>
         <div className="flex items-center gap-2">
           {task.status === "IN_PROGRESS" && (
             <span
