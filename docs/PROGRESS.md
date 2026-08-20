@@ -423,3 +423,18 @@ Short record of decisions made and why, so you don't relitigate them later.
   project has already hit a few Base UI-vs-Radix surprises). Project select
   is intentionally not on the task form yet — Projects (Phase 3) doesn't
   exist to list from until that phase lands.
+- 2026-08-19 — Post-Phase-2 fixes from user click-through: (1) Base UI's
+  `<Select.Value>` only resolves a value to a label from items mounted
+  inside the popup at least once — pre-set filters ("all") and edit-mode
+  pre-fills never open the dropdown first, so triggers showed the raw
+  sentinel/enum/id. Fixed everywhere via `Select.Root`'s `items` prop (a
+  `{ value: label }` map, resolved immediately regardless of mount state);
+  documented in `frontend/DESIGN.md`'s component-gotchas section since
+  Projects/Schedule will hit the same thing. (2) Category color picker now
+  seeds a random color (`lib/colors.ts`) instead of a flat hardcoded
+  default — hue is random but saturation/lightness are bounded to the same
+  vivid, dark-legible band the cyan/magenta/amber accent tokens live in, so
+  it stays "in-theme" rather than fully random RGB. Re-rolls after each
+  create. (3) Task filter's category select now shows the color dot in its
+  trigger too, not just the open list (same `items`-accepts-ReactNode
+  mechanism as the label-resolution fix).
