@@ -788,3 +788,11 @@ Short record of decisions made and why, so you don't relitigate them later.
   disagree), a time-range line printed on each block when it's tall enough to fit one, and an
   opaque `bg-card` surface for the whole grid instead of the page's `.hud-grid-bg` texture
   showing through underneath it. Full reasoning in `frontend/DESIGN.md`.
+- 2026-08-20 — Fixed an overnight pair's tail half showing a nonsense time range on its own
+  day ("12:00 AM – 12:00 AM" instead of "12:00 AM – 2:00 AM") — the display logic read the
+  partner's `endTime` unconditionally to find the "true" end, which is only correct for the
+  head half (whose own `endTime` is always the `MINUTES_PER_DAY` placeholder); the tail's own
+  `endTime` was already correct and didn't need substituting. Also added a continuation
+  marker per user request (chevron on whichever corner touches midnight, plus squaring off
+  that corner) so a pair reads as "one shift split by the day boundary" without needing to
+  hover for the tooltip. Full reasoning in `frontend/DESIGN.md`.

@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DAY_LABELS, MINUTES_PER_DAY, formatClockTime, formatHourLabel } from "@/lib/time";
+import {
+  DAY_LABELS,
+  MINUTES_PER_DAY,
+  formatClockTime,
+  formatHourLabel,
+} from "@/lib/time";
 import { hashLabelToColor } from "@/lib/colors";
 import { findOverlappingIds } from "@/features/schedule/overlap";
 import { layoutDayBlocks } from "@/features/schedule/layout";
@@ -41,7 +47,10 @@ interface WeekCalendarProps {
   onEdit: (blocks: ScheduleBlock[]) => void;
 }
 
-function findPartner(block: ScheduleBlock, all: ScheduleBlock[]): ScheduleBlock | undefined {
+function findPartner(
+  block: ScheduleBlock,
+  all: ScheduleBlock[],
+): ScheduleBlock | undefined {
   if (!block.pairId) return undefined;
   return all.find((b) => b.pairId === block.pairId && b.id !== block.id);
 }
@@ -106,7 +115,7 @@ export function WeekCalendar({ blocks, onEdit }: WeekCalendarProps) {
           })}
         </div>
 
-        <div className="flex">
+        <div className="flex mt-3">
           {/* Hour labels */}
           <div className="w-12 shrink-0 border-r border-border">
             {HOURS.map((h) => (
@@ -146,16 +155,31 @@ export function WeekCalendar({ blocks, onEdit }: WeekCalendarProps) {
                   <div
                     aria-hidden
                     className="absolute inset-x-0 z-10 border-t-2 border-accent-cyan"
-                    style={{ top: (nowMinutes / MINUTES_PER_DAY) * GRID_HEIGHT }}
+                    style={{
+                      top: (nowMinutes / MINUTES_PER_DAY) * GRID_HEIGHT,
+                    }}
                   />
                 )}
 
                 {laidOut.map(({ block, lane, laneCount }) => {
                   const partner = findPartner(block, blocks);
                   const commitmentBlocks = partner ? [block, partner] : [block];
-                  const displayEnd = partner ? partner.endTime : block.endTime;
+                  // The head half is always stored ending at exactly
+                  // MINUTES_PER_DAY (midnight) by construction — that's a
+                  // placeholder, not the real end, so its *display* end has
+                  // to come from the tail's endTime instead. The tail's own
+                  // endTime is already the true end (it was never capped),
+                  // so it needs no substitution — using `partner.endTime`
+                  // unconditionally for both halves was the bug: it made
+                  // the tail show its head's placeholder end (midnight) as
+                  // its own, producing a nonsense "12:00 AM – 12:00 AM".
+                  const isHead = Boolean(partner) && block.endTime === MINUTES_PER_DAY;
+                  const isTail = Boolean(partner) && block.startTime === 0;
+                  const displayEnd = isHead && partner ? partner.endTime : block.endTime;
                   const top = (block.startTime / MINUTES_PER_DAY) * GRID_HEIGHT;
-                  const height = ((block.endTime - block.startTime) / MINUTES_PER_DAY) * GRID_HEIGHT;
+                  const height =
+                    ((block.endTime - block.startTime) / MINUTES_PER_DAY) *
+                    GRID_HEIGHT;
                   const width = 100 / laneCount;
                   const left = lane * width;
                   const color = hashLabelToColor(block.label);
@@ -167,16 +191,25 @@ export function WeekCalendar({ blocks, onEdit }: WeekCalendarProps) {
                       key={block.id}
                       type="button"
                       onClick={() => onEdit(commitmentBlocks)}
-                      title={`${block.label} · ${timeText}${partner ? " (overnight)" : ""}`}
+                      title={`${block.label} · ${timeText}${partner ? " (continues onto the next day)" : ""}`}
                       // Solid bg-muted, not a translucent tint of the label
                       // color — a wash-of-color fill let the hour lines
                       // bleed straight through it and made every block look
                       // washed-out against the page's grid backdrop. Color
                       // identity now lives only in the left border + dot,
                       // same "accent, not a flood" convention as the rest
-                      // of the app.
+                      // of the app. The edge that touches midnight is
+                      // squared off (not rounded) on whichever half has one
+                      // — a continuing shift shouldn't look like it has a
+                      // rounded, finished corner where it doesn't.
                       className={cn(
                         "absolute overflow-hidden rounded-md border-l-[3px] bg-muted px-1.5 py-1 text-left ring-1 ring-foreground/10 transition-colors hover:ring-accent-cyan/40",
+                        isHead && "rounded-b-none",
+                        isTail && "rounded-t-none",
+                        // Reserves room for the continuation chevron so a
+                        // long truncated label's ellipsis never visually
+                        // runs underneath it.
+                        (isHead || isTail) && "pr-3.5",
                         overlapping.has(block.id) && "ring-accent-amber/60",
                       )}
                       style={{
@@ -187,6 +220,27 @@ export function WeekCalendar({ blocks, onEdit }: WeekCalendarProps) {
                         borderColor: color,
                       }}
                     >
+                      {/* Continuation marker — a chevron pointing the
+                          direction the shift keeps going, sitting inside
+                          the box (not straddling the edge: the button
+                          clips overflow for its truncated text, so
+                          anything positioned outside its bounds would just
+                          get cut off) and anchored to the right so it
+                          never collides with the dot + label anchored
+                          left. Makes "this is one half of a longer shift"
+                          visible without needing to hover for the tooltip. */}
+                      {isHead && (
+                        <ChevronDown
+                          aria-hidden
+                          className="absolute right-1 bottom-0.5 size-3 text-muted-foreground"
+                        />
+                      )}
+                      {isTail && (
+                        <ChevronUp
+                          aria-hidden
+                          className="absolute top-0.5 right-1 size-3 text-muted-foreground"
+                        />
+                      )}
                       {twoLines ? (
                         <>
                           <span className="block truncate font-mono text-[9px] leading-tight text-muted-foreground">

@@ -366,6 +366,21 @@ reinventing per component:
     `bg-card` surface instead of sitting directly on the page's `.hud-grid-bg` texture, which
     was the root cause of the whole thing reading as visually foreign against the rest of the
     app.
+  - **Bug found in the same pass: an overnight pair's tail half showed a nonsense time range
+    on its own day** (e.g. "12:00 AM – 12:00 AM" instead of "12:00 AM – 2:00 AM"). The display
+    logic unconditionally read `partner.endTime` to get the "true" end — correct for the head
+    half (whose own `endTime` is always the `MINUTES_PER_DAY` placeholder, not the real end),
+    wrong for the tail half (whose own `endTime` already *is* the real end; reading its
+    partner's placeholder end instead just produced midnight twice). Fixed by only
+    substituting the partner's end when rendering the head (`isHead`); the tail now displays
+    its own `endTime` directly. Also added a small continuation marker per user request ("give
+    a marker to know it's continuous from monday 4pm-2am tuesday") — a `ChevronDown` on the
+    head's bottom-right corner, `ChevronUp` on the tail's top-right, plus squaring off
+    (`rounded-b-none`/`rounded-t-none`) whichever corner touches midnight so it doesn't look
+    like a finished edge. Markers sit inside the block's padding (not straddling the edge —
+    the block clips overflow for text truncation, so anything positioned outside its bounds
+    would just get cut off) and anchored opposite the dot + label so they never collide; a
+    `pr-3.5` reserves room so a long truncated label's ellipsis can't run underneath one.
 - **Today (`app/(app)/today/`)** is where two conventions written earlier in this document
   finally get used for the first time, rather than new ones being invented: `.animate-pulse-glow`
   (earmarked back when it was added — "the handful of elements that should feel alive at
