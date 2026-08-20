@@ -65,13 +65,15 @@ export function useDeleteTask() {
   });
 }
 
-// No success toast for complete/reopen, deliberately and symmetrically —
-// the checkbox's own visual state is the feedback for this frequent,
-// low-stakes toggle; a toast on every click (in either direction) would be
-// noise. Only surface failures, since those are unexpected. (Previously
-// "reopen" reused the generic useUpdateTask mutation above, which *does*
-// toast on success — that mismatch, checkbox-toggle-toasts-one-way-but-not-
-// the-other, was the reported bug; these two hooks now mirror each other.)
+// Not currently used by the Tasks list — that now goes through the general
+// useSetTaskStatus below (the card's unified status Select can set DONE
+// directly; the backend's PATCH /tasks/:id already manages completedAt
+// correctly for any status transition, confirmed against
+// tasks.service.ts). Kept for a likely future single-action "mark done"
+// affordance (e.g. the Today page's top-task card, Phase 5) where a
+// dedicated complete endpoint's slightly tighter idempotency semantics are
+// a better fit than exposing the full 3-state dropdown. No success toast,
+// deliberately — see useSetTaskStatus below for the same reasoning.
 export function useCompleteTask() {
   const queryClient = useQueryClient();
   return useMutation({

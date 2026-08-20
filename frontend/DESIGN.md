@@ -102,13 +102,15 @@ reinventing per component:
   not just an id, specifically so the identifying name is available for this — see
   `features/tasks/hooks.ts`/`features/categories/hooks.ts`. Apply this to every new mutation
   hook (Projects/Schedule/Settings in later phases), not just Tasks/Categories.
-- **The task-complete checkbox's two directions (`useCompleteTask`/`useReopenTask`) are
-  deliberately symmetric: neither shows a success toast**, only errors — a frequent, low-stakes
-  checkbox toggle doesn't need a toast in either direction, and showing one only on the
-  "undo" side (which is what happened when reopen briefly reused the generic `useUpdateTask`
-  mutation) reads as an inconsistent bug, not a feature. If a future toggle-style action needs
-  the same treatment, give it its own dedicated hook rather than piggybacking on a generic
-  update mutation that has its own (correct, wanted) toast.
+- **Status-only changes never show a success toast** (`useSetTaskStatus`/`useCompleteTask` in
+  `features/tasks/hooks.ts`) — only errors. A status click (however it's triggered — a
+  checkbox, a toggle, the card's status `Select`) is frequent and low-stakes; the UI updating
+  is its own feedback. This has to be symmetric across every direction a status can change,
+  or it reads as an inconsistent bug, not a feature — this was caught once already (reopening
+  a task toasted "Task updated" while completing it toasted nothing, because reopen was
+  piggybacking on the generic `useUpdateTask` mutation, which correctly *does* toast for an
+  actual form save). If a future status-changing control needs this treatment, route it
+  through `useSetTaskStatus`, not a one-off mutation.
 - **API-level errors are a toast (`sonner`'s `toast.error(...)`), not an inline `Alert`.**
   Tried an animated inline `Alert` banner first (shadcn's own "auth screen" recipe
   suggests it) — in practice, an API error growing the Card taller on submit is a bad
@@ -154,46 +156,50 @@ reinventing per component:
   `ListTodo`'s consumer-to-do-app read), `FolderKanban`/`CalendarClock`/`Settings`/`LogOut`
   kept as-is — already clear, professional, not generic. Reconsider each new icon this
   deliberately rather than grabbing the first lucide match for the word.
-- **Task card (`features/tasks/components/task-list.tsx`)** is the reference example for
-  turning an ordinary list row into something that reads as HUD, not admin-dashboard:
-  a colored priority **edge stripe** on the left (glowing for HIGH/URGENT only, per the
-  "reserved, not default" accent rule — LOW/MEDIUM stay a plain/cyan bar), **corner ticks**
-  (small targeting-frame brackets, idle at low opacity, brightening on hover) instead of a
-  plain bordered rectangle, and a **cursor-follow radial highlight** inside the card (written
-  straight to CSS vars on the DOM node in the pointermove handler, not React state — same
-  "don't re-render per pixel" reasoning as the auth pages' torch effect, just without needing
-  a spring since this is a per-row effect, not an ambient one). Priority itself is a small
-  tracked-uppercase text readout, not a filled `Badge` — the filled/glowing treatment already
-  lives on the edge stripe, so repeating it as a pill would be redundant. Category and Project
-  (once Phase 3 lands a way to set the latter — the `Task.project` relation already comes back
-  from the API and is rendered if present) are chips instead: category uses its own color
-  dynamically (`${color}1a` background tint, `${color}40` border, via inline `style`, since a
-  per-category color can't be a static Tailwind class); project uses a fixed accent-cyan tint +
-  `FolderKanban` icon, since it's structural (one fixed meaning) rather than user-colored. An
-  `IN_PROGRESS` task also gets a small `animate-pulse` cyan dot next to its title — the list had
-  no visual distinction between `TODO` and `IN_PROGRESS` before, only done-vs-not.
-- **To Do ↔ In Progress is a one-click toggle right on the card, not an edit-Sheet trip.**
-  What was a passive "In Progress" pulsing dot (decoration only) is now that same dot as a
-  real button — click to move the status along, hover for a faint cyan tint previewing the
-  click (same "reactive, not static" family as everything else on this card). `Done` stays
-  exclusively the checkbox's job (one control per transition, not two fighting over the same
-  state) — this toggle only ever moves between `TODO`/`IN_PROGRESS`. Backed by a general
-  `useSetTaskStatus` hook (`features/tasks/hooks.ts`) that also now backs "reopen" from the
-  checkbox — same no-success-toast treatment as `useCompleteTask`, since a quick status click
-  is exactly as frequent/low-stakes as the checkbox itself, not a deliberate form save.
-- **The complete checkbox is a real toggle, not a one-way action.** It was originally disabled
-  once checked ("full status control via edit" was the escape hatch) — user feedback pointed
-  out an accidental click had no easy way back. Unchecking now reverts the task to `TODO` via
-  the same `useUpdateTask` mutation the edit form uses (not a special-cased revert). Also fixed
-  while in there: the checkbox was fading to near-invisible when done, because the outer
-  card's `opacity-60` and the checkbox's own `disabled:opacity-50` were compounding
-  (0.6 × 0.5 ≈ 0.3 opacity) — the checkbox is the primary control here, so it now stays at full
-  opacity always; only the title/metadata content wrapper dims (`opacity-70`) to signal "done."
+- **Task card (`features/tasks/components/task-list.tsx`), redesigned 2026-08-19 after direct
+  user feedback that an earlier HUD-heavy version (corner-tick brackets, a cursor-follow
+  radial glow, a checkbox *plus* a separate near-invisible status dot) was visually busy, hard
+  to scan, and unclear what was actually clickable.** Current version, and the standing
+  lesson for every future list row in this app: **every visible element should either carry
+  real information or be an unambiguous control — nothing purely decorative.**
+  - **One status control for the whole lifecycle**, not two competing ones. A `Select`
+    (`STATUS_ITEMS`/`StatusLabel` in `task-list.tsx`) replaced the checkbox + toggle-dot pair
+    — a `Select`'s own chevron makes "this is a dropdown, click it" obvious at a glance, which
+    a bare 6px dot never did. Covers `TODO`/`IN_PROGRESS`/`DONE` uniformly through
+    `useSetTaskStatus`, including `DONE` — confirmed against the backend
+    (`tasks.service.ts`'s `updateTask`) that `PATCH /tasks/:id` already manages `completedAt`
+    correctly on any status transition, so there's no need to special-case `DONE` through the
+    dedicated `/complete` endpoint here (that endpoint's `useCompleteTask` hook is kept for a
+    likely future single-action "mark done" affordance, e.g. the Today page's top task, where
+    a one-directional action is the better fit than a 3-way dropdown).
+  - **Priority earns a visible signal only when it's HIGH/URGENT** — a colored left border,
+    nothing for LOW/MEDIUM (previously *every* row got some edge treatment, even if muted;
+    now most rows get none, so the ones that do actually stand out). Priority's text label
+    stays for every row regardless (small, muted unless HIGH/URGENT) — the color signal is
+    reserved, the information itself never is.
+  - **No purely-decorative elements**: the corner-tick brackets and cursor-follow radial glow
+    from the previous version are gone entirely — they conveyed no information, only added
+    visual weight, which is exactly what "too busy" was pointing at. The "reactive, not
+    static" microinteraction principle (see above) still applies to controls that do
+    something (the status `Select`, hover states with real affordance) — it was never meant
+    to justify decoration for its own sake, and this was the concrete correction for reading
+    it that way.
+  - **Two-line hierarchy**: status + title + row menu on the first line; priority, deadline,
+    duration, category, project on a second, uniformly muted metadata line — ordered
+    objective-facts-first (priority/deadline/duration), then organizational tags
+    (category/project), instead of an undifferentiated wrapped row where everything competed
+    for the same attention.
+  - Category/project chips unchanged in spirit from before: category uses its own color
+    dynamically (`${color}1a` background tint, `${color}40` border, via inline `style` — a
+    per-category color can't be a static Tailwind class); project uses a fixed accent-cyan
+    tint + `FolderKanban` icon, since it's structural (one fixed meaning) rather than
+    user-colored.
 - **`Badge`'s radius fixed from shadcn's default pill (`rounded-4xl`) to `rounded-sm`** — a
   full pill reads as a generic SaaS tag, at odds with the sharper `--radius` token this theme
-  already chose specifically for a more precise/HUD feel. Single consumer at the time of the
-  change (the task card above), so low-risk; do this once, systemically, rather than
-  special-casing radius per usage.
+  already chose specifically for a more precise/HUD feel. `Badge` isn't currently used
+  anywhere (the task card's chips above are bespoke, not `Badge`) — kept fixed regardless,
+  since whatever first reaches for it next (a Projects/Schedule status pill, most likely)
+  should inherit the right shape automatically rather than needing this rediscovered.
 - **`/tasks` productivity pass (2026-08-19)** — the reference for what "more UX, not more
   decoration" means on a list page: real numbers, sort/search over the actual data, and
   keyboard shortcuts, not additional visual flourish.

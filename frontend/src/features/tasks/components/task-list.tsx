@@ -1,10 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { FolderKanban, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Check, FolderKanban, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +11,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,19 +31,24 @@ import {
 import { cn } from "@/lib/utils";
 import { staggerContainer, fadeInUp } from "@/lib/motion";
 import { getDeadlineUrgency } from "@/lib/datetime";
-import { useCompleteTask, useDeleteTask, useSetTaskStatus } from "@/features/tasks/hooks";
-import type { Task, TaskPriority } from "@/types";
+import { useDeleteTask, useSetTaskStatus } from "@/features/tasks/hooks";
+import type { Task, TaskPriority, TaskStatus } from "@/types";
 
-// Priority reads as a system-level HUD signal (a colored edge + a small
-// tracked-uppercase label), not a filled Badge like category/project — see
-// frontend/DESIGN.md's accent-token convention: cyan/amber/magenta glow is
-// reserved for things that should actually stand out, so only HIGH/URGENT
-// get a glowing edge. LOW/MEDIUM stay understated on purpose.
-const PRIORITY_EDGE: Record<TaskPriority, string> = {
-  LOW: "bg-border",
-  MEDIUM: "bg-accent-cyan",
-  HIGH: "bg-accent-amber shadow-glow-amber",
-  URGENT: "bg-accent-magenta shadow-glow-magenta",
+// Redesigned 2026-08-19 after user feedback that the previous version (a
+// checkbox + a separate near-invisible status dot + corner-tick/cursor-glow
+// decoration) was visually busy, hard to scan, and unclear what was
+// actually clickable. This version: one explicit status control (text +
+// chevron — a Select is unmistakably a dropdown), a plain two-line layout
+// (title/actions, then metadata), and no decoration that isn't carrying
+// information — see frontend/DESIGN.md for the full before/after reasoning.
+
+// Priority only earns a visible signal (a colored left border) when it's
+// HIGH/URGENT — the "reserved, not default" accent-token rule taken further
+// than before: LOW/MEDIUM tasks get no border treatment at all, so the
+// signal actually means something instead of every row carrying some color.
+const PRIORITY_BORDER: Partial<Record<TaskPriority, string>> = {
+  HIGH: "border-l-accent-amber",
+  URGENT: "border-l-accent-magenta",
 };
 
 const PRIORITY_TEXT: Record<TaskPriority, string> = {
@@ -54,13 +65,44 @@ const PRIORITY_LABEL: Record<TaskPriority, string> = {
   URGENT: "Urgent",
 };
 
+function StatusLabel({ status }: { status: TaskStatus }) {
+  if (status === "DONE") {
+    return (
+      <span className="flex items-center gap-1.5">
+        <Check className="size-3" />
+        Done
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center gap-1.5">
+      <span
+        aria-hidden
+        className={cn(
+          "size-1.5 rounded-full",
+          status === "IN_PROGRESS" ? "animate-pulse bg-accent-cyan" : "bg-muted-foreground",
+        )}
+      />
+      {status === "IN_PROGRESS" ? "In Progress" : "To Do"}
+    </span>
+  );
+}
+
+// See frontend/DESIGN.md's Select.Value gotcha — items must be provided so
+// the trigger resolves a label immediately (a task's status is always
+// pre-set, the dropdown is never opened first to "teach" it the label).
+const STATUS_ITEMS: Record<TaskStatus, ReactNode> = {
+  TODO: <StatusLabel status="TODO" />,
+  IN_PROGRESS: <StatusLabel status="IN_PROGRESS" />,
+  DONE: <StatusLabel status="DONE" />,
+};
+
 interface TaskListProps {
   tasks: Task[];
   onEdit: (task: Task) => void;
 }
 
 export function TaskList({ tasks, onEdit }: TaskListProps) {
-  const completeTask = useCompleteTask();
   const setStatus = useSetTaskStatus();
   const deleteTask = useDeleteTask();
   // A single shared AlertDialog, not one per row, controlled by which task
@@ -92,14 +134,7 @@ export function TaskList({ tasks, onEdit }: TaskListProps) {
               task={task}
               onEdit={() => onEdit(task)}
               onDelete={() => setDeleteTarget(task)}
-              onComplete={() => completeTask.mutate(task)}
-              onUncomplete={() => setStatus.mutate({ task, status: "TODO" })}
-              onToggleInProgress={() =>
-                setStatus.mutate({
-                  task,
-                  status: task.status === "IN_PROGRESS" ? "TODO" : "IN_PROGRESS",
-                })
-              }
+              onStatusChange={(status) => setStatus.mutate({ task, status })}
             />
           </motion.div>
         ))}
@@ -135,150 +170,84 @@ interface TaskCardProps {
   task: Task;
   onEdit: () => void;
   onDelete: () => void;
-  onComplete: () => void;
-  onUncomplete: () => void;
-  onToggleInProgress: () => void;
+  onStatusChange: (status: TaskStatus) => void;
 }
 
-function TaskCard({
-  task,
-  onEdit,
-  onDelete,
-  onComplete,
-  onUncomplete,
-  onToggleInProgress,
-}: TaskCardProps) {
+function TaskCard({ task, onEdit, onDelete, onStatusChange }: TaskCardProps) {
   const done = task.status === "DONE";
   const urgency = getDeadlineUrgency(task.deadline, done);
-  const cardRef = useRef<HTMLDivElement>(null);
-
-  // Cursor-tracked highlight, not a static hover state — see
-  // frontend/DESIGN.md's "reactive, not static" microinteraction principle
-  // (the auth pages' cursor-as-torch orbs are the reference example). Writes
-  // the pointer position straight to CSS custom properties on the DOM node
-  // instead of React state — pointermove fires constantly, and a re-render
-  // per pixel of mouse movement would be wasteful on a list that can hold
-  // many of these at once.
-  function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    const rect = cardRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    cardRef.current?.style.setProperty("--glow-x", `${e.clientX - rect.left}px`);
-    cardRef.current?.style.setProperty("--glow-y", `${e.clientY - rect.top}px`);
-  }
+  const priorityBorder = !done ? PRIORITY_BORDER[task.priority] : undefined;
 
   return (
     <div
-      ref={cardRef}
-      onPointerMove={handlePointerMove}
-      className="group/task relative flex items-center gap-3 overflow-hidden rounded-lg bg-card py-3 pr-3 pl-4 text-sm text-card-foreground ring-1 ring-foreground/10 transition-transform duration-150 hover:-translate-y-0.5"
+      className={cn(
+        "group/task flex items-start gap-2 rounded-lg border-l-2 border-l-transparent bg-card px-3 py-2.5 text-sm text-card-foreground ring-1 ring-foreground/10 transition-colors hover:ring-foreground/20",
+        priorityBorder,
+      )}
     >
-      {/* Priority edge — a HUD status stripe, not just a badge in the text. */}
-      <span
-        aria-hidden
-        className={cn(
-          "absolute inset-y-0 left-0 w-0.75",
-          done ? "bg-border" : PRIORITY_EDGE[task.priority],
-        )}
-      />
-
-      {/* Targeting-frame corner ticks — idle at low opacity, brighten on hover.
-          Inset 1.5 (6px) on both, matching --radius-lg exactly, so they sit
-          just past the card's own rounded-corner curve instead of getting
-          clipped by overflow-hidden — same inset on both corners so they
-          read as a matched pair, not the priority edge stripe (3px wide)
-          nudging just the top-left one off-center from the other. */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute top-1.5 left-1.5 h-3 w-3 border-t-2 border-l-2 border-accent-cyan/15 transition-colors duration-150 group-hover/task:border-accent-cyan/60"
-      />
-      <span
-        aria-hidden
-        className="pointer-events-none absolute right-1.5 bottom-1.5 h-3 w-3 border-r-2 border-b-2 border-accent-cyan/15 transition-colors duration-150 group-hover/task:border-accent-cyan/60"
-      />
-
-      {/* Cursor-follow highlight — references the accent-cyan token via
-          color-mix rather than a hardcoded color, per DESIGN.md's rule. */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 group-hover/task:opacity-100"
-        style={{
-          background:
-            "radial-gradient(220px circle at var(--glow-x, 50%) var(--glow-y, 50%), color-mix(in oklch, var(--accent-cyan) 8%, transparent), transparent 70%)",
-        }}
-      />
-
-      {/* A real toggle, not a one-way "complete" button — unchecking a done
-          task reverts it to TODO. A disabled, faded-out checkbox after
-          completion left no way to recover from an accidental click short of
-          opening the edit form; a checkbox that just works both ways is the
-          simpler fix. Kept at full opacity regardless of done state (see
-          the content wrapper below) since it's the primary control here —
-          fading it out alongside the text made it hard to even see it was
-          checked. */}
-      <Checkbox
-        checked={done}
-        onCheckedChange={(checked) => (checked ? onComplete() : onUncomplete())}
-        aria-label={done ? "Mark as not done" : "Mark complete"}
-        className="relative z-10"
-      />
-
-      <div className={cn("relative z-10 min-w-0 flex-1 space-y-1.5", done && "opacity-70")}>
+      <div className={cn("min-w-0 flex-1 space-y-1.5", done && "opacity-70")}>
         <div className="flex items-center gap-2">
-          {/* One click to move between To Do and In Progress — no need to
-              open the edit Sheet just to nudge status along. Done is still
-              exclusively the checkbox's job (keeps one control per state
-              transition, instead of two fighting over the same thing). */}
-          {!done && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleInProgress();
-              }}
-              aria-label={
-                task.status === "IN_PROGRESS" ? "Mark as to do" : "Mark as in progress"
-              }
-              title={
-                task.status === "IN_PROGRESS"
-                  ? "In progress — click to move back to To Do"
-                  : "Click to mark as in progress"
-              }
-              className="group/status -ml-1 shrink-0 rounded-full p-1 transition-colors hover:bg-accent-cyan/10"
+          {/* One control for the whole lifecycle (To Do / In Progress /
+              Done) — a Select's own chevron makes "this is a dropdown"
+              obvious, unlike the previous checkbox + separate near-
+              invisible dot for two different controls doing one job. */}
+          <Select
+            items={STATUS_ITEMS}
+            value={task.status}
+            onValueChange={(v) => onStatusChange(v as TaskStatus)}
+          >
+            <SelectTrigger
+              size="sm"
+              aria-label="Change status"
+              className={cn(
+                "h-6.5 shrink-0 gap-1 px-2 text-xs",
+                task.status === "IN_PROGRESS" && "border-accent-cyan/40 text-accent-cyan",
+              )}
             >
-              <span
-                aria-hidden
-                className={cn(
-                  "block size-1.5 rounded-full transition-colors",
-                  task.status === "IN_PROGRESS"
-                    ? "animate-pulse bg-accent-cyan"
-                    : "bg-border group-hover/status:bg-accent-cyan/50",
-                )}
-              />
-            </button>
-          )}
-          <p className={cn("truncate font-medium", done && "text-muted-foreground line-through")}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="start">
+              <SelectItem value="TODO">
+                <StatusLabel status="TODO" />
+              </SelectItem>
+              <SelectItem value="IN_PROGRESS">
+                <StatusLabel status="IN_PROGRESS" />
+              </SelectItem>
+              <SelectItem value="DONE">
+                <StatusLabel status="DONE" />
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          <p className={cn("min-w-0 flex-1 truncate font-medium", done && "line-through")}>
             {task.title}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
-          {/* Priority: a small readout, not a filled pill — reserves the
-              filled/glowing treatment for the edge stripe above. */}
-          <span
-            className={cn(
-              "font-heading font-semibold tracking-wider uppercase",
-              done ? "text-muted-foreground" : PRIORITY_TEXT[task.priority],
-            )}
-          >
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <span className={cn("font-medium", !done && PRIORITY_TEXT[task.priority])}>
             {PRIORITY_LABEL[task.priority]}
           </span>
 
-          {task.project && (
-            <span className="flex items-center gap-1 rounded-sm border border-accent-cyan/25 bg-accent-cyan/10 px-1.5 py-0.5 text-accent-cyan">
-              <FolderKanban className="size-3" />
-              {task.project.name}
+          {task.deadline && (
+            <span
+              className={cn(
+                "font-mono",
+                !done && urgency === "overdue" && "font-semibold text-destructive",
+                !done && urgency === "due-today" && "font-semibold text-accent-amber",
+              )}
+            >
+              {new Date(task.deadline).toLocaleString(undefined, {
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+              {!done && urgency === "overdue" && " · overdue"}
             </span>
           )}
+
+          <span className="font-mono">{task.estimatedDuration}m</span>
 
           {task.category && (
             <span
@@ -297,32 +266,17 @@ function TaskCard({
             </span>
           )}
 
-          {task.deadline && (
-            <span
-              className={cn(
-                "font-mono",
-                urgency === "overdue" && "font-semibold text-destructive",
-                urgency === "due-today" && "font-semibold text-accent-amber",
-              )}
-            >
-              {new Date(task.deadline).toLocaleString(undefined, {
-                month: "short",
-                day: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-              })}
-              {urgency === "overdue" && " · overdue"}
+          {task.project && (
+            <span className="flex items-center gap-1 rounded-sm border border-accent-cyan/25 bg-accent-cyan/10 px-1.5 py-0.5 text-accent-cyan">
+              <FolderKanban className="size-3" />
+              {task.project.name}
             </span>
           )}
-          <span className="font-mono">{task.estimatedDuration}m</span>
         </div>
       </div>
 
       <DropdownMenu>
-        <DropdownMenuTrigger
-          render={<Button variant="ghost" size="icon-sm" aria-label="Task actions" />}
-          className="relative z-10"
-        >
+        <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label="Task actions" />}>
           <MoreVertical />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">

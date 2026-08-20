@@ -505,3 +505,18 @@ Short record of decisions made and why, so you don't relitigate them later.
   `useSetTaskStatus({ task, status })`, which now backs both the checkbox's "reopen" and this
   new toggle — same no-success-toast treatment as `useCompleteTask` (frequent, low-stakes,
   checkbox-adjacent, not a deliberate form save).
+- 2026-08-19 — Task card redesigned again, this time from scratch, after direct user feedback
+  ("not convinced ... don't give me a good experience") on the previous HUD-heavy version:
+  too visually busy, hard to scan, interactions not obvious. Presented two concrete
+  alternatives (ASCII mockups) rather than guessing again after several rounds of
+  smaller fixes on the same file; user picked "structured, two-line, one explicit status
+  control." Replaced the checkbox + separate near-invisible toggle-dot with a single `Select`
+  covering `TODO`/`IN_PROGRESS`/`DONE` (confirmed against the backend that `PATCH /tasks/:id`
+  already handles `completedAt` correctly for a direct `DONE` transition, so no need to route
+  through the dedicated `/complete` endpoint here). Removed the corner-tick brackets and
+  cursor-follow glow entirely — purely decorative, no information value, the concrete thing
+  "too busy" was pointing at. Priority's colored border now only appears for HIGH/URGENT
+  (previously every row got some edge treatment). Metadata reorganized into a clear two-line
+  hierarchy (status+title+menu, then objective-facts-first metadata line). Full reasoning
+  in `frontend/DESIGN.md`, including the standing lesson: every visible element should carry
+  real information or be an unambiguous control, never decoration for its own sake.
