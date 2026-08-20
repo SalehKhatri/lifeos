@@ -51,21 +51,24 @@ const PRIORITY_BORDER: Partial<Record<TaskPriority, string>> = {
   URGENT: "border-l-accent-magenta",
 };
 
-const PRIORITY_TEXT: Record<TaskPriority, string> = {
+// Exported — reused by the Today page (Phase 5) for its "Up Next" list and
+// top-task card, so priority/status read identically everywhere a Task
+// shows up rather than drifting into a second styling of the same data.
+export const PRIORITY_TEXT: Record<TaskPriority, string> = {
   LOW: "text-muted-foreground",
   MEDIUM: "text-accent-cyan",
   HIGH: "text-accent-amber",
   URGENT: "text-accent-magenta",
 };
 
-const PRIORITY_LABEL: Record<TaskPriority, string> = {
+export const PRIORITY_LABEL: Record<TaskPriority, string> = {
   LOW: "Low",
   MEDIUM: "Medium",
   HIGH: "High",
   URGENT: "Urgent",
 };
 
-function StatusLabel({ status }: { status: TaskStatus }) {
+export function StatusLabel({ status }: { status: TaskStatus }) {
   if (status === "DONE") {
     return (
       <span className="flex items-center gap-1.5">
@@ -91,7 +94,7 @@ function StatusLabel({ status }: { status: TaskStatus }) {
 // See frontend/DESIGN.md's Select.Value gotcha — items must be provided so
 // the trigger resolves a label immediately (a task's status is always
 // pre-set, the dropdown is never opened first to "teach" it the label).
-const STATUS_ITEMS: Record<TaskStatus, ReactNode> = {
+export const STATUS_ITEMS: Record<TaskStatus, ReactNode> = {
   TODO: <StatusLabel status="TODO" />,
   IN_PROGRESS: <StatusLabel status="IN_PROGRESS" />,
   DONE: <StatusLabel status="DONE" />,
@@ -170,14 +173,17 @@ export function TaskList({ tasks, onEdit }: TaskListProps) {
   );
 }
 
-interface TaskCardProps {
+export interface TaskCardProps {
   task: Task;
   onEdit: () => void;
   onDelete: () => void;
   onStatusChange: (status: TaskStatus) => void;
 }
 
-function TaskCard({ task, onEdit, onDelete, onStatusChange }: TaskCardProps) {
+// Exported — the Today page's "Up Next" list (Phase 5) reuses this exact
+// card rather than a second, slightly-different one, so a task looks and
+// behaves identically whether you're looking at it from /tasks or /today.
+export function TaskCard({ task, onEdit, onDelete, onStatusChange }: TaskCardProps) {
   const done = task.status === "DONE";
   const urgency = getDeadlineUrgency(task.deadline, done);
   const priorityBorder = !done ? PRIORITY_BORDER[task.priority] : undefined;

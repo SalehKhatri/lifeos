@@ -80,7 +80,7 @@ Update this as you go. Keep notes short — one line per item is enough.
 | Item                | Status | Notes |
 | ------------------- | ------ | ----- |
 | /today endpoint     | ✅     | `modules/today` — top task + up to 3 "up next" (both from Recommendations) + today's fixed commitments (from Schedule) |
-| Frontend Today page | 🔲     | see Frontend section below |
+| Frontend Today page | ✅     | see Frontend section below |
 
 ## Frontend
 
@@ -98,7 +98,7 @@ styling anything new.
 | Tasks + Categories page                | ✅     | Phase 2 — filters, list, create/edit Sheet, delete, inline category manager |
 | Projects page                          | ✅     | Phase 3 — status filter, Card grid with progress bars, create/edit Sheet, delete AlertDialog, inline status control |
 | Schedule page                          | ✅     | Phase 4 — 7-day grouped view, create/edit Sheet with time inputs, delete AlertDialog |
-| Today page                             | 🔲     | Phase 5 — the priority page per `docs/ARCHITECTURE.md` |
+| Today page                             | ✅     | Phase 5 — the priority page per `docs/ARCHITECTURE.md`: top-task hero card, "Up Next", today's commitments |
 | Settings page                          | 🔲     | Phase 6 |
 
 ## Known Issues / Fixes Needed
@@ -651,3 +651,23 @@ Short record of decisions made and why, so you don't relitigate them later.
   instead of reading as a boundary. Fixed with an actual fill per day (`bg-muted/20`, kept
   subtle so it doesn't read as a card-inside-a-card next to the commitment rows' `bg-card`)
   — a real fill blocks the grid where a line couldn't.
+- 2026-08-19 — Phase 5 (Today) built. `features/recommendations/` (api+hooks for
+  `GET /recommendations` and `GET /today`, confirmed exact contract against the backend
+  first — `/today` does *not* return `availableMinutesToday`, only `/recommendations` does,
+  so the page fetches both). `TaskCard` and its display constants (`PRIORITY_TEXT`,
+  `PRIORITY_LABEL`, `StatusLabel`, `STATUS_ITEMS`) exported from `task-list.tsx` and reused
+  directly for "Up Next", rather than a second, slightly-different card — a task looks and
+  behaves identically whether viewed from `/tasks` or `/today`. The top-task card is the
+  first real use of two conventions that were earmarked back when they were written but
+  never actually used until now: `.animate-pulse-glow` ("the handful of elements that should
+  feel alive at rest, e.g. the Today page's top-task card") and `useCompleteTask` (kept
+  unused since the task-card redesign specifically "for a likely future single-action 'mark
+  done' affordance... e.g. the Today page's top-task card"). The engine's "reason" string
+  gets the deliberate one use of accent-magenta-as-insight-signal DESIGN.md already
+  documented ("this is an AI/insight moment" callouts) — not a new color decision, just the
+  first place that convention actually applied. `d` marks the top task done from the
+  keyboard (this page's entire premise is "here's the one thing to do," so finishing it
+  earns a direct shortcut, not just a button); `n` for new task, for parity. Every task
+  mutation hook (`features/tasks/hooks.ts`) now also invalidates `["today"]`/
+  `["recommendations"]`, not just `["tasks"]` — completing/editing/deleting a task from
+  *anywhere* can change what Today should rank, not just actions taken from Today itself.

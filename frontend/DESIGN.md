@@ -345,6 +345,24 @@ reinventing per component:
     subtle (`bg-muted/20`, not `bg-card`) so it doesn't read as a card containing cards — the
     commitment rows inside are still the more prominent `bg-card` surface; this is just the
     group they sit in, one visual tier below.
+- **Today (`app/(app)/today/`)** is where two conventions written earlier in this document
+  finally get used for the first time, rather than new ones being invented: `.animate-pulse-glow`
+  (earmarked back when it was added — "the handful of elements that should feel alive at
+  rest, e.g. the Today page's top-task card") on the hero card, and `useCompleteTask`
+  (deliberately kept unused through the task-card redesign specifically for this — "a likely
+  future single-action 'mark done' affordance... e.g. the Today page's top-task card"). The
+  engine's "reason" string (why this task, specifically) is the one place accent-magenta's
+  documented "AI/insight moment" callout convention actually applies — not a new color
+  decision, the first real use of an old one. `TaskCard` (and its display constants —
+  `PRIORITY_TEXT`, `PRIORITY_LABEL`, `StatusLabel`, `STATUS_ITEMS`) are exported from
+  `features/tasks/components/task-list.tsx` and reused directly for "Up Next," rather than a
+  second, slightly-different card component — a task should look and behave identically
+  whether you're looking at it from `/tasks` or `/today`. `d` marks the top task done from
+  the keyboard — this page's entire premise is "here's the one thing to do right now," so
+  finishing it earns a direct shortcut, not just a button click. Every task mutation now also
+  invalidates `["today"]`/`["recommendations"]` (`features/tasks/hooks.ts`'s
+  `invalidateTaskRelated`), not just `["tasks"]` — completing/editing/deleting a task from
+  *anywhere* in the app can change what Today should rank next.
 
 - **Filter bars collapse behind one "Filters" `Popover` once there are more than ~2-3
   axes**, rather than showing every `Select` inline — four always-visible filters

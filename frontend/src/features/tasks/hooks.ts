@@ -19,6 +19,19 @@ function errorMessage(err: unknown, fallback: string) {
   return err instanceof ApiError ? err.message : fallback;
 }
 
+// Every task mutation invalidates ["today"]/["recommendations"] too, not
+// just ["tasks"] — the Prioritization Engine ranks off task status/
+// deadline/priority, so completing, editing, or deleting a task from
+// anywhere (not just the Today page itself) can change what Today should
+// show. Plain key arrays, not an import from features/recommendations —
+// Tasks has no reason to depend on that module just to invalidate its
+// cache key.
+function invalidateTaskRelated(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: taskKeys.all });
+  queryClient.invalidateQueries({ queryKey: ["today"] });
+  queryClient.invalidateQueries({ queryKey: ["recommendations"] });
+}
+
 export function useTasks(filters: TaskFilters = {}) {
   return useQuery({
     queryKey: taskKeys.list(filters),
@@ -31,7 +44,7 @@ export function useCreateTask() {
   return useMutation({
     mutationFn: (input: TaskInput) => tasksApi.createTask(input),
     onSuccess: (task) => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      invalidateTaskRelated(queryClient);
       toast.success(`Created "${task.title}"`);
     },
     onError: (err, input) =>
@@ -45,7 +58,7 @@ export function useUpdateTask() {
     mutationFn: ({ id, input }: { id: string; input: UpdateTaskInput }) =>
       tasksApi.updateTask(id, input),
     onSuccess: (task) => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      invalidateTaskRelated(queryClient);
       toast.success(`Updated "${task.title}"`);
     },
     onError: (err, { input }) =>
@@ -58,7 +71,7 @@ export function useDeleteTask() {
   return useMutation({
     mutationFn: (task: Task) => tasksApi.deleteTask(task.id),
     onSuccess: (_data, task) => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      invalidateTaskRelated(queryClient);
       toast.success(`Deleted "${task.title}"`);
     },
     onError: (err, task) => toast.error(errorMessage(err, `Couldn't delete "${task.title}"`)),
@@ -79,7 +92,7 @@ export function useCompleteTask() {
   return useMutation({
     mutationFn: (task: Task) => tasksApi.completeTask(task.id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      invalidateTaskRelated(queryClient);
     },
     onError: (err, task) =>
       toast.error(errorMessage(err, `Couldn't mark "${task.title}" as done`)),
@@ -98,7 +111,7 @@ export function useSetTaskStatus() {
     mutationFn: ({ task, status }: { task: Task; status: TaskStatus }) =>
       tasksApi.updateTask(task.id, { status }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      invalidateTaskRelated(queryClient);
     },
     onError: (err, { task }) =>
       toast.error(errorMessage(err, `Couldn't update "${task.title}"`)),
