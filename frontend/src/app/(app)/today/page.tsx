@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { TopTaskCard } from "@/features/recommendations/components/top-task-card";
 import { TodaysCommitments } from "@/features/recommendations/components/todays-commitments";
+import { CurrentCommitmentBanner } from "@/features/recommendations/components/current-commitment-banner";
 import { useRecommendations, useTodayView } from "@/features/recommendations/hooks";
 import { TaskCard } from "@/features/tasks/components/task-list";
 import { TaskFormSheet } from "@/features/tasks/components/task-form-sheet";
@@ -83,6 +84,14 @@ export default function TodayPage() {
           <kbd className="ml-1 font-mono text-xs opacity-70">n</kbd>
         </Button>
       </div>
+
+      {/* Whatever's on right now, before anything else — "what should I
+          work on" implicitly depends on what's already claiming your time
+          this exact minute, so it leads the page rather than sitting
+          buried in the commitments list further down. */}
+      {!isLoading && !isError && today && (
+        <CurrentCommitmentBanner commitments={today.commitments} />
+      )}
 
       {/* Real, at-a-glance number — the whole premise of this page is
           "given your actual free time, here's what to work on," so that

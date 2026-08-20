@@ -446,6 +446,22 @@ reinventing per component:
   invalidates `["today"]`/`["recommendations"]` (`features/tasks/hooks.ts`'s
   `invalidateTaskRelated`), not just `["tasks"]` — completing/editing/deleting a task from
   *anywhere* in the app can change what Today should rank next.
+  - **`CurrentCommitmentBanner`** (user request: "if current time some commitment are going
+    on display the info about it at top") leads the page, above even the free-minutes line —
+    "what should I work on" implicitly depends on what's already claiming your time this
+    exact minute. Filters (not `.find`s) `today.commitments` for `nowMinutes >= startTime &&
+    nowMinutes < endTime` — plural because the app deliberately allows overlapping
+    commitments elsewhere (Schedule warns rather than blocks), so more than one can
+    legitimately be "now" at once, however rare — and renders nothing at all when the answer
+    is empty, same "an inactive state is itself real information" reasoning as
+    `TodaysCommitments`' own empty state. Ticks every 30s via a local `useNowMinutes` (a
+    `setInterval`, not derived once per render) so "ends in 12m" and which commitment even
+    counts as current both stay right without a manual refresh — this page is meant to be
+    glanced at throughout the day, not just loaded once each morning. `TodaysCommitments`
+    gained the identical tick (kept local rather than shared/prop-drilled — two independent
+    30s intervals cost nothing this page cares about) purely to put a small "Now" tag + cyan
+    ring on the matching row, so that list doesn't look unaware of the same fact the banner
+    above it is announcing.
 - **Settings (`app/(app)/settings/`)** introduces this app's first standalone `Command`+
   `Popover` combobox — the command palette also composes these two, but as a `CommandDialog`
   triggered globally, a structurally different job from an inline field inside a form. The

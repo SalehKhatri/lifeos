@@ -830,3 +830,11 @@ Short record of decisions made and why, so you don't relitigate them later.
   saved overnight pair already renders. The plain-click-defaults-to-wrapped-1h-block fallback
   from the previous pass is kept for same-day clicks (a plain click can't itself cross a
   column). Full reasoning in `frontend/DESIGN.md`.
+- 2026-08-20 — Added `CurrentCommitmentBanner` to Today per user request ("if current time
+  some commitment are going on display the info about it at top") — leads the page, above the
+  free-minutes line, showing whichever commitment(s) are active right now with a live "ends in
+  Xm" countdown. Ticks every 30s via a local `useNowMinutes` interval so it stays accurate
+  without a manual refresh. Renders nothing when nothing's currently active, same as
+  `TodaysCommitments`' existing empty state. `TodaysCommitments` also gained a small "Now" tag
+  on the matching row for consistency with the new banner. Full reasoning in
+  `frontend/DESIGN.md`.
