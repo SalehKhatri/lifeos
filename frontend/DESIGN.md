@@ -345,6 +345,29 @@ reinventing per component:
     subtle (`bg-muted/20`, not `bg-card`) so it doesn't read as a card containing cards — the
     commitment rows inside are still the more prominent `bg-card` surface; this is just the
     group they sit in, one visual tier below.
+- **Overnight commitments (spanning midnight) are split into two real blocks at create
+  time, not a new data-model concept.** User-reported: a 4pm-2am Monday shift couldn't be
+  entered — `ScheduleBlock.startTime`/`endTime` are minutes within one calendar day
+  (0-1439), so `endTime < startTime` was rejected outright. Rather than changing the data
+  model (which would also mean changing the availability calc and Today's commitments
+  query to understand a block that "continues from yesterday"), the **create** form now
+  treats `endTime < startTime` as "spans midnight" and auto-splits it into two ordinary
+  same-day blocks (today's evening half ending at `MINUTES_PER_DAY - 1`, tomorrow's
+  early-morning half starting at 0) — reusing the exact multi-day batch-create machinery
+  already built for Mon-Fri-style selections (`useCreateScheduleBlocks`). Applied per
+  selected day, including the day-of-week wraparound (`(day + 1) % 7`, so Saturday's
+  "tomorrow" is correctly Sunday). Every other part of the app — overlap detection, the
+  daily timeline bar, the availability calc, Today's commitments — needed zero changes,
+  because from their perspective these are just two normal single-day blocks; the "this is
+  one shift really" framing only exists in the create form and the toast copy. **Edit mode
+  keeps the strict same-day check** (`startTime < endTime`), since it operates on a single
+  existing block and has no way to represent half of a spanning pair — editing either half
+  of an overnight shift edits just that half, same as editing one day of a multi-day
+  selection already did. `useCreateScheduleBlocks`'s toast now counts *distinct days
+  touched* (`new Set(inputs.map(i => i.dayOfWeek)).size`) rather than raw block count, so a
+  single overnight entry correctly reads "Created "X" for 2 days," not "for 2 days" meaning
+  something wrong (the shift genuinely touches two calendar days) — same wording, same
+  reasoning as an actual multi-day selection.
 - **Today (`app/(app)/today/`)** is where two conventions written earlier in this document
   finally get used for the first time, rather than new ones being invented: `.animate-pulse-glow`
   (earmarked back when it was added — "the handful of elements that should feel alive at

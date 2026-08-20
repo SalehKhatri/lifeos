@@ -718,3 +718,16 @@ Short record of decisions made and why, so you don't relitigate them later.
   Fixed everywhere. Full clean rebuild (`tsc --noEmit`, `eslint`, `next build`) across the
   whole frontend confirms nothing regressed. This closes out the original approved frontend
   build plan (Phases 0-7) in full.
+- 2026-08-19 — User-found during their own manual pass: a shift spanning midnight (e.g.
+  Monday 4pm-2am) couldn't be entered — `ScheduleBlock.startTime`/`endTime` are minutes
+  within a single calendar day (0-1439), so `endTime < startTime` was rejected. Fixed in the
+  **create** form only: an end time earlier than the start time is now treated as "spans
+  midnight" and auto-split into two real same-day blocks (today's evening half + tomorrow's
+  early-morning half, with correct day-of-week wraparound), reusing the existing multi-day
+  batch-create path (`useCreateScheduleBlocks`). No data-model or backend change — overlap
+  detection, the daily timeline, the availability calc, and Today's commitments all needed
+  zero changes, since each half is an ordinary single-day block from their point of view.
+  Edit mode keeps the strict same-day check (operates on one existing block, can't represent
+  half of a spanning pair). Toast copy now counts distinct days touched, not raw block
+  count, so a single overnight entry reads "for 2 days" correctly rather than misleadingly.
+  Full reasoning in `frontend/DESIGN.md`.

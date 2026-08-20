@@ -42,14 +42,24 @@ export function useCreateScheduleBlocks() {
       const succeeded = results.filter((r) => r.status === "fulfilled").length;
       const failed = results.length - succeeded;
       const label = inputs[0]?.label ?? "commitment";
+      // Distinct days touched, not the raw block count — an overnight
+      // commitment that spans midnight becomes 2 blocks under the hood
+      // (schedule-form-sheet.tsx splits it at the day boundary) but is
+      // still one thing from the user's perspective. "for 2 days" still
+      // reads sensibly there, since they just entered a time crossing
+      // midnight themselves — same phrasing, same reasoning as an actual
+      // multi-day selection.
+      const distinctDays = new Set(inputs.map((i) => i.dayOfWeek)).size;
 
       if (succeeded > 0) {
         queryClient.invalidateQueries({ queryKey: scheduleKeys.all });
       }
       if (failed === 0) {
-        toast.success(succeeded === 1 ? `Created "${label}"` : `Created "${label}" for ${succeeded} days`);
+        toast.success(
+          distinctDays <= 1 ? `Created "${label}"` : `Created "${label}" for ${distinctDays} days`,
+        );
       } else if (succeeded > 0) {
-        toast.error(`Created "${label}" for ${succeeded} day(s), ${failed} failed`);
+        toast.error(`Created "${label}" partially — some parts failed, double check your schedule`);
       } else {
         toast.error(`Couldn't create "${label}"`);
       }

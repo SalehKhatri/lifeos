@@ -5,6 +5,13 @@
 // convert that int to/from what <input type="time"> needs ("HH:MM", 24h)
 // and to a human-readable 12h display string.
 
+// The backend's own timeSchema caps startTime/endTime at 1439 (z.number()
+// .max(1439)) — minutes 0-1439 span one day, there's no minute 1440 (that's
+// minute 0 of the next day). Exported so a "spans midnight" split
+// (features/schedule/components/schedule-form-sheet.tsx) can compute the
+// correct end-of-day boundary without a magic number.
+export const MINUTES_PER_DAY = 1440;
+
 export function minutesToTimeInput(minutes: number): string {
   const h = Math.floor(minutes / 60) % 24;
   const m = minutes % 60;

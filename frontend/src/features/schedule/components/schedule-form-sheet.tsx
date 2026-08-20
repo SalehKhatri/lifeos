@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
@@ -17,38 +17,54 @@ import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/form-field";
 import { cn } from "@/lib/utils";
 import { useCreateScheduleBlocks, useUpdateScheduleBlock } from "@/features/schedule/hooks";
-import { minutesToTimeInput, timeInputToMinutes } from "@/lib/time";
+import type { ScheduleBlockInput } from "@/features/schedule/api";
+import { MINUTES_PER_DAY, minutesToTimeInput, timeInputToMinutes } from "@/lib/time";
 import type { ScheduleBlock } from "@/types";
 
 const DAY_VALUES = ["0", "1", "2", "3", "4", "5", "6"] as const;
 const DAY_SHORT = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
-const scheduleFormSchema = z
-  .object({
-    label: z
-      .string()
-      .trim()
-      .min(1, "Label is required")
-      .max(100, "Label must be 100 characters or less"),
-    // An array, not a single value — lets create mode pick multiple days at
-    // once (e.g. "Work" for Mon-Fri in one action). Edit mode still only
-    // ever has one entry, since it operates on a single existing block.
-    dayOfWeek: z.array(z.enum(DAY_VALUES)).min(1, "Select at least one day"),
-    startTime: z.string().min(1, "Start time is required"),
-    endTime: z.string().min(1, "End time is required"),
-  })
-  // Mirrors the backend's own cross-field check (schedule.validation.ts) so
-  // the mistake surfaces immediately instead of after a round trip.
-  .refine(
-    (data) => {
-      const start = timeInputToMinutes(data.startTime);
-      const end = timeInputToMinutes(data.endTime);
-      return start !== undefined && end !== undefined && start < end;
-    },
-    { message: "Start time must be before end time", path: ["endTime"] },
-  );
+// Create mode allows an end time earlier than the start time — that's not
+// invalid, it means the commitment spans midnight (e.g. a 4pm-2am shift).
+// Edit mode can't represent that: it updates a single existing block, which
+// can only ever hold one calendar day's worth of minutes (see
+// ScheduleBlockInput/the backend's timeSchema, capped at 1439) — so editing
+// keeps the strict same-day check. See onSubmit below for how create mode
+// actually realizes a spanning entry as two real blocks.
+function buildScheduleFormSchema(isEditing: boolean) {
+  return z
+    .object({
+      label: z
+        .string()
+        .trim()
+        .min(1, "Label is required")
+        .max(100, "Label must be 100 characters or less"),
+      // An array, not a single value — lets create mode pick multiple days
+      // at once (e.g. "Work" for Mon-Fri in one action). Edit mode still
+      // only ever has one entry, since it operates on a single existing
+      // block.
+      dayOfWeek: z.array(z.enum(DAY_VALUES)).min(1, "Select at least one day"),
+      startTime: z.string().min(1, "Start time is required"),
+      endTime: z.string().min(1, "End time is required"),
+    })
+    .refine(
+      (data) => {
+        const start = timeInputToMinutes(data.startTime);
+        const end = timeInputToMinutes(data.endTime);
+        if (start === undefined || end === undefined) return false;
+        if (isEditing) return start < end;
+        return start !== end; // create: only a zero-length block is invalid
+      },
+      {
+        message: isEditing
+          ? "Start time must be before end time"
+          : "Start and end time can't be the same",
+        path: ["endTime"],
+      },
+    );
+}
 
-type ScheduleFormValues = z.infer<typeof scheduleFormSchema>;
+type ScheduleFormValues = z.infer<ReturnType<typeof buildScheduleFormSchema>>;
 
 // A sensible non-blank starting point, computed fresh every time the sheet
 // opens for create (not baked into a static constant) — same reasoning as
@@ -59,7 +75,7 @@ function defaultValuesForNow(): ScheduleFormValues {
   const now = new Date();
   const startHour = (now.getHours() + 1) % 24;
   const start = startHour * 60;
-  const end = (start + 60) % 1440;
+  const end = (start + 60) % MINUTES_PER_DAY;
   return {
     label: "",
     dayOfWeek: [String(now.getDay()) as ScheduleFormValues["dayOfWeek"][number]],
@@ -86,7 +102,7 @@ export function ScheduleFormSheet({ open, onOpenChange, block }: ScheduleFormShe
     reset,
     formState: { errors },
   } = useForm<ScheduleFormValues>({
-    resolver: zodResolver(scheduleFormSchema),
+    resolver: zodResolver(buildScheduleFormSchema(isEditing)),
     defaultValues: defaultValuesForNow(),
   });
 
@@ -106,25 +122,54 @@ export function ScheduleFormSheet({ open, onOpenChange, block }: ScheduleFormShe
     );
   }, [open, block, reset]);
 
+  // useWatch, not useForm's own `watch()` — the latter trips a React
+  // Compiler "incompatible library" warning (it returns a plain function
+  // rather than being a proper subscription hook); useWatch is the
+  // compiler-friendly equivalent, same pattern already settled on for
+  // Settings' form. Used here only to show a "spans midnight" hint live,
+  // not for validation (the schema itself already handles that).
+  const startTimeValue = useWatch({ control, name: "startTime" });
+  const endTimeValue = useWatch({ control, name: "endTime" });
+  const spansMidnight =
+    !isEditing &&
+    (() => {
+      const start = timeInputToMinutes(startTimeValue);
+      const end = timeInputToMinutes(endTimeValue);
+      return start !== undefined && end !== undefined && end < start;
+    })();
+
   async function onSubmit(values: ScheduleFormValues) {
-    // Every field required by the backend on both create and update paths
-    // (once present) — no nullable-field split to worry about here, unlike
-    // Tasks/Projects (see frontend/DESIGN.md).
-    const base = {
-      label: values.label,
-      startTime: timeInputToMinutes(values.startTime)!,
-      endTime: timeInputToMinutes(values.endTime)!,
-    };
+    const start = timeInputToMinutes(values.startTime)!;
+    const end = timeInputToMinutes(values.endTime)!;
+    const label = values.label;
 
     if (isEditing && block) {
+      // Every field required by the backend on the update path (once
+      // present) — no nullable-field split to worry about here, unlike
+      // Tasks/Projects (see frontend/DESIGN.md).
       await updateBlock.mutateAsync({
         id: block.id,
-        input: { ...base, dayOfWeek: Number(values.dayOfWeek[0]) },
+        input: { label, dayOfWeek: Number(values.dayOfWeek[0]), startTime: start, endTime: end },
       });
     } else {
-      await createBlocks.mutateAsync(
-        values.dayOfWeek.map((d) => ({ ...base, dayOfWeek: Number(d) })),
-      );
+      // A day whose end time is earlier than its start time spans
+      // midnight — realized as two real blocks (today's evening half,
+      // tomorrow's early-morning half), since the data model has no way
+      // to represent "extends past this day" on a single row. Applied
+      // per selected day, so a multi-day overnight selection (e.g. a
+      // Mon-Fri night shift) splits each one correctly, including the
+      // day-of-week wraparound (Saturday's "tomorrow" is Sunday).
+      const inputs: ScheduleBlockInput[] = values.dayOfWeek.flatMap((d) => {
+        const day = Number(d);
+        if (end < start) {
+          return [
+            { label, dayOfWeek: day, startTime: start, endTime: MINUTES_PER_DAY - 1 },
+            { label, dayOfWeek: (day + 1) % 7, startTime: 0, endTime: end },
+          ];
+        }
+        return [{ label, dayOfWeek: day, startTime: start, endTime: end }];
+      });
+      await createBlocks.mutateAsync(inputs);
     }
     onOpenChange(false);
   }
@@ -141,7 +186,7 @@ export function ScheduleFormSheet({ open, onOpenChange, block }: ScheduleFormShe
           <SheetDescription>
             {isEditing
               ? "Update the details below."
-              : "Block off recurring time on your week — pick more than one day if it repeats."}
+              : "Block off recurring time on your week — pick more than one day if it repeats, or set an end time earlier than the start if it runs past midnight."}
           </SheetDescription>
         </SheetHeader>
 
@@ -209,7 +254,12 @@ export function ScheduleFormSheet({ open, onOpenChange, block }: ScheduleFormShe
                 <Input id="startTime" type="time" {...register("startTime")} />
               </FormField>
 
-              <FormField label="End time" htmlFor="endTime" error={errors.endTime?.message}>
+              <FormField
+                label="End time"
+                htmlFor="endTime"
+                error={errors.endTime?.message}
+                hint={spansMidnight ? "Ends the next day" : undefined}
+              >
                 <Input id="endTime" type="time" {...register("endTime")} />
               </FormField>
             </div>
@@ -217,11 +267,7 @@ export function ScheduleFormSheet({ open, onOpenChange, block }: ScheduleFormShe
 
           <SheetFooter>
             <Button type="submit" disabled={isPending}>
-              {isPending
-                ? "Saving…"
-                : isEditing
-                  ? "Save changes"
-                  : "Create commitment"}
+              {isPending ? "Saving…" : isEditing ? "Save changes" : "Create commitment"}
             </Button>
           </SheetFooter>
         </form>
