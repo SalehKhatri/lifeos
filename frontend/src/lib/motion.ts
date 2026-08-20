@@ -21,9 +21,15 @@ export const TRANSITION_BASE: Transition = {
 };
 
 // Small upward fade — the default for cards/rows entering the viewport.
+// `exit` only fires inside an `<AnimatePresence>` — without one, Motion has
+// no chance to animate a departing element, React just unmounts it. Shrinks
+// rather than sliding back down (the reverse of `hidden`'s `y: 8`) so a
+// deleted/filtered-out row reads as "removed," not "un-entering" — those
+// are different actions and shouldn't look identical played backwards.
 export const fadeInUp: Variants = {
   hidden: { opacity: 0, y: 8 },
   visible: { opacity: 1, y: 0, transition: TRANSITION_BASE },
+  exit: { opacity: 0, scale: 0.97, transition: TRANSITION_FAST },
 };
 
 // Wrap a list container with this + fadeInUp on each child for a staggered entrance.

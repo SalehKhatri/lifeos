@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Archive, Check, MoreVertical, Pause, Pencil, Trash2 } from "lucide-react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -92,14 +92,6 @@ export function ProjectList({ projects, onEdit }: ProjectListProps) {
   // task list's delete confirmation.
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
 
-  if (projects.length === 0) {
-    return (
-      <div className="rounded-lg border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
-        No projects match these filters.
-      </div>
-    );
-  }
-
   return (
     <>
       <motion.div
@@ -108,16 +100,38 @@ export function ProjectList({ projects, onEdit }: ProjectListProps) {
         variants={staggerContainer}
         className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
       >
-        {projects.map((project) => (
-          <motion.div key={project.id} variants={fadeInUp}>
-            <ProjectCard
-              project={project}
-              onEdit={() => onEdit(project)}
-              onDelete={() => setDeleteTarget(project)}
-              onStatusChange={(status) => setStatus.mutate({ project, status })}
-            />
-          </motion.div>
-        ))}
+        {/* mode="popLayout" + each card's own `layout` — same reasoning as
+            the task list: a removed card's siblings reflow into the gap as
+            it fades out, instead of the two motions happening in sequence.
+            The empty state lives inside this AnimatePresence (keyed
+            "empty", col-span-full so it still reads as one message across
+            the grid rather than a single narrow cell) rather than an early
+            return before it — an early return would unmount AnimatePresence
+            in the same render the last project disappears, before it gets
+            a chance to animate that departure. */}
+        <AnimatePresence mode="popLayout">
+          {projects.length === 0 ? (
+            <motion.div
+              key="empty"
+              variants={fadeInUp}
+              exit="exit"
+              className="col-span-full rounded-lg border border-dashed border-border py-16 text-center text-sm text-muted-foreground"
+            >
+              No projects match these filters.
+            </motion.div>
+          ) : (
+            projects.map((project) => (
+              <motion.div key={project.id} layout variants={fadeInUp} exit="exit">
+                <ProjectCard
+                  project={project}
+                  onEdit={() => onEdit(project)}
+                  onDelete={() => setDeleteTarget(project)}
+                  onStatusChange={(status) => setStatus.mutate({ project, status })}
+                />
+              </motion.div>
+            ))
+          )}
+        </AnimatePresence>
       </motion.div>
 
       <AlertDialog open={deleteTarget !== null} onOpenChange={(o) => !o && setDeleteTarget(null)}>

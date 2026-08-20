@@ -547,6 +547,46 @@ reinventing per component:
     Today's new greeting subtitle has no `nowrap` anywhere, so it wraps across lines like
     ordinary text instead of overflowing, unlike the nav row's single-word links.
 
+- **Micro-interactions pass (2026-08-20, user request: "add them wherever possible") —
+  round 1, list enter/exit consistency.** `lib/motion.ts`'s `fadeInUp` had a `hidden`/`visible`
+  pair but no `exit` — Motion only animates a departing element inside an `<AnimatePresence>`,
+  and without one, React just unmounts it instantly the moment it's filtered/deleted out of a
+  list. Added `exit: { opacity: 0, scale: 0.97, transition: TRANSITION_FAST }` — shrinks
+  rather than sliding back down (the reverse of `hidden`'s `y: 8`), so a removal reads as
+  "removed," not "un-entering played backwards"; those are different actions and shouldn't
+  look identical.
+  - **Every list-rendering surface that didn't already have this** (Tasks' `TaskList`,
+    Projects' `ProjectList`, Today's "Up Next," and `TodaysCommitments` — the last of these
+    had *zero* motion at all before this pass) now wraps its `.map()` in `<AnimatePresence
+    mode="popLayout">`, with each row/card keeping the `layout` prop it either already had
+    (Tasks) or gained here (Projects, Today's commitments) — `popLayout` lets a removed
+    item's siblings reflow into the gap *while* it's still fading out, rather than waiting for
+    the fade to finish first, so the two motions read as one continuous action.
+  - **The empty state moved inside the `AnimatePresence` as a keyed child ("empty"), not an
+    early `return` before it.** This is the one genuinely non-obvious part: an early return
+    unmounts `AnimatePresence` itself in the exact same render the last item disappears —
+    before it ever gets a chance to detect the removal and animate it. Keeping `AnimatePresence`
+    continuously mounted and swapping *which* child is present (the row(s) vs. the "empty"
+    message) is what actually lets the last item play its exit instead of just vanishing.
+    Projects' grid empty state additionally needed `col-span-full` so it still reads as one
+    message across the grid instead of a single narrow cell.
+  - **Deliberately not handling the *section* disappearing** when Today's "Up Next" empties
+    out entirely (that whole block, heading included, is gated on `today.upNext.length > 0`
+    one level up, outside this fix's scope) — same accepted simplification as every other
+    section-presence toggle on this page (e.g. `CommitmentStatusBanner` itself just
+    conditionally renders/unrenders with no transition). Noted as a smaller, lower-priority
+    follow-up, not silently skipped.
+  - **Backlog noted for a later round, not tackled here** (scope/risk tradeoff, not
+    forgotten): the Schedule week-calendar's blocks (plain absolutely-positioned `<button>`s,
+    not currently in a Motion tree at all — converting them risks destabilizing the drag-to-
+    create/edit logic built in earlier passes, wants its own careful pass); a task's
+    strikethrough-on-complete transition (CSS `text-decoration` doesn't animate reliably
+    across browsers without extra markup, likely not worth the complexity for the visual
+    payoff); hover feedback on purely informational badges/chips (category dots, priority
+    labels) — deliberately *not* added, since none of those are clickable, and a hover
+    reaction on a non-control would misrepresent it as one, the opposite of "every visible
+    element ... carries real information or is an unambiguous control."
+
 - **Filter bars collapse behind one "Filters" `Popover` once there are more than ~2-3
   axes**, rather than showing every `Select` inline — four always-visible filters
   (status/priority/category/project) on `/tasks`, right after Project became the fourth, was

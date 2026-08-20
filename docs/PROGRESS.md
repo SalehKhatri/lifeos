@@ -890,3 +890,16 @@ Short record of decisions made and why, so you don't relitigate them later.
   moving highlight sweeping across the name via an animated gradient `background-position`,
   plain `@keyframes` (not Motion) same as `.animate-pulse-glow`'s existing ambient-effect
   convention. Full reasoning in `frontend/DESIGN.md`.
+- 2026-08-20 — Micro-interactions pass, round 1 (user request: "add them wherever possible").
+  Added an `exit` variant to `lib/motion.ts`'s `fadeInUp` (it only had `hidden`/`visible`) and
+  wrapped every list-rendering surface that didn't already animate removals — Tasks'
+  `TaskList`, Projects' `ProjectList`, Today's "Up Next," and `TodaysCommitments` (which had
+  no motion at all before this) — in `<AnimatePresence mode="popLayout">`, with the empty
+  state moved inside as a keyed child rather than an early `return` (an early return unmounts
+  `AnimatePresence` in the same render the last item disappears, before it can animate that
+  departure). Backlog noted for later, not tackled in this pass: the Schedule week-calendar's
+  blocks (higher risk — not currently in a Motion tree, and converting them risks the
+  drag-to-create/edit logic), a task's strikethrough-on-complete transition (CSS
+  `text-decoration` doesn't animate reliably), and hover feedback on non-clickable badges
+  (deliberately skipped — would misrepresent them as controls). Full reasoning in
+  `frontend/DESIGN.md`.

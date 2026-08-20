@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { PartyPopper, Plus, Sun, Sunset, Moon } from "lucide-react";
-import { fadeInUp } from "@/lib/motion";
+import { fadeInUp, staggerContainer } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QueryErrorState } from "@/components/query-error-state";
@@ -207,17 +207,36 @@ export default function TodayPage() {
               <h2 className="font-heading text-xs font-semibold tracking-widest text-muted-foreground uppercase">
                 Up Next
               </h2>
-              <div className="space-y-2">
-                {today.upNext.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    onEdit={() => openEdit(task)}
-                    onDelete={() => setDeleteTarget(task)}
-                    onStatusChange={(status) => setStatus.mutate({ task, status })}
-                  />
-                ))}
-              </div>
+              {/* Same stagger/layout/exit treatment as the Tasks page's own
+                  list (lib/motion.ts's staggerContainer + fadeInUp) —
+                  DESIGN.md's stated intent for reusing TaskCard here is "a
+                  task should look and behave identically whether you're
+                  looking at it from /tasks or /today," which extends to how
+                  it enters/leaves, not just how it's styled at rest. Doesn't
+                  handle the section itself disappearing when the last item
+                  is removed (this whole block is gated on
+                  `today.upNext.length > 0` one level up) — same accepted
+                  simplification as every other section-presence toggle on
+                  this page (e.g. CommitmentStatusBanner), not a new gap. */}
+              <motion.div
+                initial="hidden"
+                animate="visible"
+                variants={staggerContainer}
+                className="space-y-2"
+              >
+                <AnimatePresence mode="popLayout">
+                  {today.upNext.map((task) => (
+                    <motion.div key={task.id} layout variants={fadeInUp} exit="exit">
+                      <TaskCard
+                        task={task}
+                        onEdit={() => openEdit(task)}
+                        onDelete={() => setDeleteTarget(task)}
+                        onStatusChange={(status) => setStatus.mutate({ task, status })}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </motion.div>
               {/* The ranked list is longer than what this page surfaces —
                   a quiet link, not a hidden truncation, to the rest of the
                   queue. */}

@@ -8,7 +8,7 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -123,14 +123,6 @@ export function TaskList({ tasks, onEdit }: TaskListProps) {
   // project has already hit a few Base UI vs. Radix surprises this session).
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
 
-  if (tasks.length === 0) {
-    return (
-      <div className="rounded-lg border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
-        No tasks match these filters.
-      </div>
-    );
-  }
-
   return (
     <>
       <motion.div
@@ -139,20 +131,45 @@ export function TaskList({ tasks, onEdit }: TaskListProps) {
         variants={staggerContainer}
         className="space-y-2"
       >
-        {tasks.map((task) => (
-          // `layout` animates the FLIP transition when this row's position
-          // changes between renders (e.g. a sort re-order) — without it,
-          // React still reorders the DOM correctly, it just snaps instantly,
-          // which reads as "did that even do anything?" on a short list.
-          <motion.div key={task.id} layout variants={fadeInUp}>
-            <TaskCard
-              task={task}
-              onEdit={() => onEdit(task)}
-              onDelete={() => setDeleteTarget(task)}
-              onStatusChange={(status) => setStatus.mutate({ task, status })}
-            />
-          </motion.div>
-        ))}
+        {/* mode="popLayout" so a removed row's siblings slide up into the
+            gap immediately (via each row's own `layout`) instead of
+            waiting for the exiting row's fade-out to finish first — the
+            two overlap, which reads as one continuous motion, not two. The
+            empty state lives *inside* this AnimatePresence (its own
+            motion.div, keyed "empty") rather than an early return before
+            it — an early return unmounts AnimatePresence itself in the
+            same render the last task disappears, before it ever gets a
+            chance to animate that departure; keeping it mounted and
+            swapping which child is present is what lets the last row
+            actually play its exit instead of just vanishing. */}
+        <AnimatePresence mode="popLayout">
+          {tasks.length === 0 ? (
+            <motion.div
+              key="empty"
+              variants={fadeInUp}
+              exit="exit"
+              className="rounded-lg border border-dashed border-border py-16 text-center text-sm text-muted-foreground"
+            >
+              No tasks match these filters.
+            </motion.div>
+          ) : (
+            tasks.map((task) => (
+              // `layout` animates the FLIP transition when this row's
+              // position changes between renders (e.g. a sort re-order) —
+              // without it, React still reorders the DOM correctly, it
+              // just snaps instantly, which reads as "did that even do
+              // anything?" on a short list.
+              <motion.div key={task.id} layout variants={fadeInUp} exit="exit">
+                <TaskCard
+                  task={task}
+                  onEdit={() => onEdit(task)}
+                  onDelete={() => setDeleteTarget(task)}
+                  onStatusChange={(status) => setStatus.mutate({ task, status })}
+                />
+              </motion.div>
+            ))
+          )}
+        </AnimatePresence>
       </motion.div>
 
       <AlertDialog
