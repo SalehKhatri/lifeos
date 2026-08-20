@@ -165,14 +165,19 @@ function TaskCard({ task, onEdit, onDelete, onComplete, onUncomplete }: TaskCard
         )}
       />
 
-      {/* Targeting-frame corner ticks — idle at low opacity, brighten on hover. */}
+      {/* Targeting-frame corner ticks — idle at low opacity, brighten on hover.
+          Inset 1.5 (6px) on both, matching --radius-lg exactly, so they sit
+          just past the card's own rounded-corner curve instead of getting
+          clipped by overflow-hidden — same inset on both corners so they
+          read as a matched pair, not the priority edge stripe (3px wide)
+          nudging just the top-left one off-center from the other. */}
       <span
         aria-hidden
-        className="pointer-events-none absolute top-0 left-0.75 h-3 w-3 border-t-2 border-l-2 border-accent-cyan/15 transition-colors duration-150 group-hover/task:border-accent-cyan/60"
+        className="pointer-events-none absolute top-1.5 left-1.5 h-3 w-3 border-t-2 border-l-2 border-accent-cyan/15 transition-colors duration-150 group-hover/task:border-accent-cyan/60"
       />
       <span
         aria-hidden
-        className="pointer-events-none absolute right-0 bottom-0 h-3 w-3 border-r-2 border-b-2 border-accent-cyan/15 transition-colors duration-150 group-hover/task:border-accent-cyan/60"
+        className="pointer-events-none absolute right-1.5 bottom-1.5 h-3 w-3 border-r-2 border-b-2 border-accent-cyan/15 transition-colors duration-150 group-hover/task:border-accent-cyan/60"
       />
 
       {/* Cursor-follow highlight — references the accent-cyan token via
